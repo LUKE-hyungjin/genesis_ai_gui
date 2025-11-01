@@ -1,0 +1,242 @@
+"""
+System bootstrap and shutdown for Genesis Interactive GUI.
+
+This module handles initialization and teardown of the entire application,
+including IPC setup, thread creation, and resource cleanup.
+
+Constitutional Compliance: Principle I (Init-Main, Run-Threaded)
+"""
+
+import threading
+import time
+from typing import Optional, Dict
+
+from src.core.ipc import CommandQueue, EventQueue, FrameBuffer, PlotBuffer
+from src.core.commands import ShutdownCommand
+from src.core.sim_loop import start_mock_sim_thread
+from src.infra.metrics import TimedLock, MetricsCollector
+from src.ui.main import initialize_dpg, destroy_dpg, create_main_window, run_gui_loop
+
+
+# ============================================================================
+# System State Container
+# ============================================================================
+
+class SystemState:
+    """
+    Container for all system components.
+
+    This class holds references to all IPC primitives, threads, and metrics
+    for coordinated shutdown.
+    """
+
+    def __init__(self):
+        """Initialize empty system state."""
+        # IPC primitives
+        self.command_queue: Optional[CommandQueue] = None
+        self.event_queue: Optional[EventQueue] = None
+        self.frame_buffer: Optional[FrameBuffer] = None
+        self.plot_buffer: Optional[PlotBuffer] = None
+
+        # Thread management
+        self.sim_thread: Optional[threading.Thread] = None
+        self.shutdown_event: Optional[threading.Event] = None
+
+        # Metrics
+        self.frame_lock: Optional[TimedLock] = None
+        self.metrics_collector: Optional[MetricsCollector] = None
+
+        # GUI
+        self.widget_tags: Dict[str, str] = {}
+
+        print("[SYSTEM] SystemState initialized")
+
+
+# ============================================================================
+# Mock System Initialization (Phase 1)
+# ============================================================================
+
+def initialize_mock_system(
+    viewport_width: int = 1280,
+    viewport_height: int = 720,
+    sim_hz: float = 1000.0,
+) -> SystemState:
+    """
+    Initialize mock system for Phase 1 validation.
+
+    This function:
+    1. Creates IPC primitives (queues, buffers)
+    2. Initializes metrics infrastructure
+    3. Starts mock simulation thread
+    4. Initializes DPG GUI on main thread
+    5. Creates main window with controls
+
+    Constitutional Compliance:
+    - Main thread creates all contexts (Principle I)
+    - Simulation runs on background thread (Principle I)
+
+    Args:
+        viewport_width: Viewport width in pixels (default 1280)
+        viewport_height: Viewport height in pixels (default 720)
+        sim_hz: Simulation loop target frequency (default 1000 Hz)
+
+    Returns:
+        SystemState with all initialized components
+    """
+    state = SystemState()
+
+    print("[SYSTEM] Initializing mock system...")
+    print(f"[SYSTEM] Viewport: {viewport_width}x{viewport_height}")
+    print(f"[SYSTEM] Sim target: {sim_hz} Hz")
+
+    # ========================================================================
+    # 1. Create IPC Primitives
+    # ========================================================================
+
+    state.command_queue = CommandQueue(maxsize=1000)
+    state.event_queue = EventQueue(maxsize=1000)
+    state.frame_buffer = FrameBuffer(width=viewport_width, height=viewport_height)
+    state.plot_buffer = PlotBuffer(maxlen=10000)
+
+    print("[SYSTEM] IPC primitives created")
+
+    # ========================================================================
+    # 2. Initialize Metrics Infrastructure
+    # ========================================================================
+
+    state.frame_lock = TimedLock(threading.Lock(), window_size=1000)
+    state.metrics_collector = MetricsCollector()
+
+    print("[SYSTEM] Metrics infrastructure initialized")
+
+    # ========================================================================
+    # 3. Start Mock Simulation Thread
+    # ========================================================================
+
+    state.sim_thread, state.shutdown_event = start_mock_sim_thread(
+        command_queue=state.command_queue,
+        event_queue=state.event_queue,
+        frame_buffer=state.frame_buffer,
+        plot_buffer=state.plot_buffer,
+        fps_counter=state.metrics_collector.sim_fps_counter,
+        target_hz=sim_hz,
+    )
+
+    print("[SYSTEM] Mock simulation thread started")
+
+    # ========================================================================
+    # 4. Initialize DPG GUI (Main Thread)
+    # ========================================================================
+
+    initialize_dpg(width=1600, height=900)
+
+    print("[SYSTEM] DPG initialized")
+
+    # ========================================================================
+    # 5. Create Main Window
+    # ========================================================================
+
+    def on_shutdown():
+        """Shutdown callback from GUI exit button."""
+        print("[SYSTEM] Shutdown requested from GUI")
+        # Signal shutdown via command
+        state.command_queue.put(ShutdownCommand())
+
+    state.widget_tags = create_main_window(
+        command_queue=state.command_queue,
+        frame_buffer=state.frame_buffer,
+        metrics_collector=state.metrics_collector,
+        on_shutdown=on_shutdown,
+    )
+
+    print("[SYSTEM] Main window created")
+    print("[SYSTEM] Mock system initialization complete")
+
+    return state
+
+
+# ============================================================================
+# System Shutdown
+# ============================================================================
+
+def shutdown_system(state: SystemState, timeout: float = 2.0):
+    """
+    Shutdown system and cleanup resources.
+
+    This function:
+    1. Sends ShutdownCommand to simulation thread
+    2. Waits for simulation thread to exit (with timeout)
+    3. Destroys DPG context
+    4. Cleans up resources
+
+    Constitutional Compliance:
+    - Clean shutdown sequence (Principle I)
+
+    Args:
+        state: SystemState to shutdown
+        timeout: Max time to wait for thread join (seconds)
+    """
+    print("[SYSTEM] Starting shutdown sequence...")
+
+    # ========================================================================
+    # 1. Signal Simulation Thread to Stop
+    # ========================================================================
+
+    if state.command_queue and state.shutdown_event:
+        print("[SYSTEM] Sending ShutdownCommand")
+        try:
+            state.command_queue.put(ShutdownCommand(), timeout=1.0)
+        except Exception as e:
+            print(f"[SYSTEM] Warning: Failed to send ShutdownCommand: {e}")
+
+        # Also set event as backup
+        state.shutdown_event.set()
+
+    # ========================================================================
+    # 2. Wait for Simulation Thread
+    # ========================================================================
+
+    if state.sim_thread:
+        print(f"[SYSTEM] Waiting for simulation thread (timeout: {timeout}s)")
+        state.sim_thread.join(timeout=timeout)
+
+        if state.sim_thread.is_alive():
+            print("[SYSTEM] Warning: Simulation thread did not exit cleanly")
+        else:
+            print("[SYSTEM] Simulation thread exited")
+
+    # ========================================================================
+    # 3. Destroy DPG Context
+    # ========================================================================
+
+    destroy_dpg()
+
+    # ========================================================================
+    # 4. Cleanup
+    # ========================================================================
+
+    print("[SYSTEM] Shutdown complete")
+
+
+# ============================================================================
+# DPG Exit Handler
+# ============================================================================
+
+def create_exit_handler(state: SystemState):
+    """
+    Create DPG exit handler callback.
+
+    This is registered with DPG to handle window close events.
+
+    Args:
+        state: SystemState for shutdown
+
+    Returns:
+        Exit handler function
+    """
+    def exit_handler():
+        """Handle DPG exit event."""
+        print("[SYSTEM] DPG exit event received")
+        shutdown_system(state)
+
+    return exit_handler

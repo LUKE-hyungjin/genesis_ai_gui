@@ -1,0 +1,27 @@
+# Genesis Interactive GUI - Dependencies
+# Python 3.11+ required
+
+# PyTorch (required by Genesis)
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Core simulation and rendering
+genesis-world>=0.3.0
+numpy>=2.0.0
+
+# GUI framework
+dearpygui>=2.0.0
+
+# Plot downsampling
+tsdownsample>=0.1.0
+
+# Development dependencies (optional)
+pytest>=7.4.0
+pytest-cov>=4.1.0
+black>=23.0.0
+ruff>=0.1.0
+mypy>=1.5.0
+
+# Performance profiling (optional)
+py-spy>=0.3.0
+psutil>=5.9.0
