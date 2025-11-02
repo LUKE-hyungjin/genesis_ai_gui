@@ -286,7 +286,15 @@ def render_genesis_frame(scene, camera, frame_buffer):
     from src.core.ipc import genesis_frame_to_dpg_texture
 
     # Render frame from Genesis camera
-    genesis_frame = camera.render()
+    # Genesis camera.render() returns tuple of (rgb, depth, segmentation, normal)
+    # We only need the RGB image (first element)
+    render_output = camera.render()
+
+    # Extract RGB frame (first element of tuple)
+    if isinstance(render_output, tuple):
+        genesis_frame = render_output[0]  # RGB image
+    else:
+        genesis_frame = render_output
 
     # Convert to DPG texture format
     dpg_frame = genesis_frame_to_dpg_texture(genesis_frame)
