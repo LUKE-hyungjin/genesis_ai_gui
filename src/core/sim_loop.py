@@ -472,24 +472,66 @@ class GenesisSimulationState:
 
         Args:
             entity_id: Entity ID
-            property_path: Property path (e.g., "position.x")
+            property_path: Property path (e.g., "position.x", "position.y", "position.z")
             value: New value
 
         Constitutional Compliance: T104
         - Property path resolver (nested getattr/setattr)
         - Supports dot-separated paths like "position.x"
         """
-        # TODO: Implement actual Genesis scene property access
-        # For Phase 4, this is a placeholder
-        print(f"[SIM] Set property: entity={entity_id}, path={property_path}, value={value}")
+        try:
+            # Get entity from scene
+            # Genesis scene stores entities in a list accessible via scene.entities
+            if not hasattr(self.scene, 'entities') or entity_id >= len(self.scene.entities):
+                print(f"[SIM] Invalid entity_id: {entity_id}")
+                return
 
-        # Example implementation (requires Genesis API knowledge):
-        # entity = self.scene.get_entity(entity_id)
-        # path_parts = property_path.split('.')
-        # obj = entity
-        # for part in path_parts[:-1]:
-        #     obj = getattr(obj, part)
-        # setattr(obj, path_parts[-1], value)
+            entity = self.scene.entities[entity_id]
+
+            # Parse property path
+            path_parts = property_path.split('.')
+
+            if path_parts[0] == 'position':
+                # Handle position properties (special case for set_pos)
+                # Get current position
+                current_pos = entity.get_pos()
+
+                # Convert to list for modification
+                if hasattr(current_pos, 'tolist'):
+                    pos_list = current_pos.tolist()
+                else:
+                    pos_list = list(current_pos)
+
+                # Modify specific axis
+                if len(path_parts) == 2:
+                    axis = path_parts[1].lower()
+                    if axis == 'x':
+                        pos_list[0] = float(value)
+                    elif axis == 'y':
+                        pos_list[1] = float(value)
+                    elif axis == 'z':
+                        pos_list[2] = float(value)
+                    else:
+                        print(f"[SIM] Unknown axis: {axis}")
+                        return
+
+                    # Set new position
+                    entity.set_pos(tuple(pos_list))
+                    print(f"[SIM] Set entity {entity_id} position: {pos_list}")
+                else:
+                    print(f"[SIM] Invalid position path: {property_path}")
+            else:
+                # Generic property path resolver (for future properties)
+                obj = entity
+                for part in path_parts[:-1]:
+                    obj = getattr(obj, part)
+                setattr(obj, path_parts[-1], value)
+                print(f"[SIM] Set property: entity={entity_id}, path={property_path}, value={value}")
+
+        except Exception as e:
+            print(f"[SIM] Failed to set property: entity={entity_id}, path={property_path}, value={value}, error={e}")
+            import traceback
+            traceback.print_exc()
 
     def should_advance(self) -> bool:
         """

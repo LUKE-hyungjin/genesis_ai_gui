@@ -407,7 +407,15 @@ def run_gui_loop(
             update_viewport(widget_tags["viewport"], frame_buffer)
 
         # ====================================================================
-        # 3. Update Metrics Dashboard
+        # 3. Refresh Property Inspector (Phase 4)
+        # ====================================================================
+
+        # Update inspector property values to reflect current scene state
+        if inspector_widget is not None:
+            inspector_widget.refresh()
+
+        # ====================================================================
+        # 4. Update Metrics Dashboard
         # ====================================================================
 
         # Collect metrics
@@ -428,7 +436,7 @@ def run_gui_loop(
         dpg.set_value(widget_tags["plot_buffer_label"], f"Plot Buffer: {metrics['plot_buffer_util']*100:.1f}%")
 
         # ====================================================================
-        # 4. Render DPG Frame
+        # 5. Render DPG Frame
         # ====================================================================
 
         dpg.render_dearpygui_frame()

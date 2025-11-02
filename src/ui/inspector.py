@@ -318,9 +318,45 @@ class PropertyInspectorWidget:
         if self.current_entity_id is None or self.current_scene is None:
             return 0.0
 
-        # TODO: Implement actual Genesis scene property access
-        # For now, return default values for testing
-        return 0.0
+        try:
+            # Get entity from scene
+            if not hasattr(self.current_scene, 'entities') or self.current_entity_id >= len(self.current_scene.entities):
+                return 0.0
+
+            entity = self.current_scene.entities[self.current_entity_id]
+
+            # Parse property path
+            path_parts = property_path.split('.')
+
+            if path_parts[0] == 'position':
+                # Get position from entity
+                pos = entity.get_pos()
+
+                # Convert to list if needed
+                if hasattr(pos, 'tolist'):
+                    pos_list = pos.tolist()
+                else:
+                    pos_list = list(pos)
+
+                # Return specific axis
+                if len(path_parts) == 2:
+                    axis = path_parts[1].lower()
+                    if axis == 'x':
+                        return float(pos_list[0])
+                    elif axis == 'y':
+                        return float(pos_list[1])
+                    elif axis == 'z':
+                        return float(pos_list[2])
+
+            # Generic property access (for future properties)
+            obj = entity
+            for part in path_parts:
+                obj = getattr(obj, part)
+            return obj
+
+        except Exception as e:
+            print(f"[INSPECTOR] Failed to get property {property_path}: {e}")
+            return 0.0
 
     def _on_drag_start(self, property_path: str):
         """
@@ -485,6 +521,40 @@ class PropertyInspectorWidget:
         self.current_entity_id = None
         self._clear_properties()
         dpg.set_value(self.entity_label_tag, "No entity selected")
+
+    def refresh(self):
+        """
+        Refresh property values from scene (called every frame).
+
+        This updates all property widget values to reflect current scene state,
+        allowing real-time display of physics simulation changes.
+
+        Constitutional Compliance: Phase 4 extension
+        - Updates property displays without emitting commands
+        - Skips properties currently being dragged (don't interrupt user input)
+        """
+        if self.current_entity_id is None or self.current_scene is None:
+            return
+
+        # Update each property widget with current value from scene
+        for prop_path, widget_tag in self.property_widgets.items():
+            # Skip if widget doesn't exist
+            if not dpg.does_item_exist(widget_tag):
+                continue
+
+            # Skip if currently being dragged (don't interrupt user input)
+            if self.drag_active.get(prop_path, False):
+                continue
+
+            # Get current value from scene
+            current_value = self._get_property_value(prop_path)
+
+            # Update widget display
+            try:
+                dpg.set_value(widget_tag, current_value)
+            except Exception as e:
+                # Ignore errors (widget might not support set_value)
+                pass
 
 
 # ============================================================================

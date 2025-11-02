@@ -74,6 +74,10 @@ class CommandQueue:
         """Get command without blocking (raises queue.Empty if empty)."""
         return self._queue.get_nowait()
 
+    def put_nowait(self, command):
+        """Put command without blocking (raises queue.Full if full)."""
+        self._queue.put_nowait(command)
+
     def qsize(self) -> int:
         """Return approximate queue depth."""
         return self._queue.qsize()
