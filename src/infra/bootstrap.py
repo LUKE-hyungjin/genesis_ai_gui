@@ -9,6 +9,7 @@ Constitutional Compliance: Principle I (Init-Main, Run-Threaded)
 
 import threading
 import time
+import platform
 from typing import Optional, Dict
 
 from src.core.ipc import CommandQueue, EventQueue, FrameBuffer, PlotBuffer
@@ -16,6 +17,85 @@ from src.core.commands import ShutdownCommand
 from src.core.sim_loop import start_mock_sim_thread
 from src.infra.metrics import TimedLock, MetricsCollector
 from src.ui.main import initialize_dpg, destroy_dpg, create_main_window, run_gui_loop
+
+
+# ============================================================================
+# Backend Selection (Phase 2: T037-T039)
+# ============================================================================
+
+def select_genesis_backend() -> str:
+    """
+    Select appropriate Genesis/Taichi backend based on operating system.
+
+    Constitutional Compliance:
+    - Must run on main thread before any Genesis contexts created (Principle I)
+
+    Backend Selection Matrix:
+    - macOS: Metal (primary) → Vulkan (fallback)
+    - Linux: CUDA (primary) → Vulkan (fallback)
+    - Windows: CUDA (primary) → Vulkan (fallback)
+
+    Returns:
+        Backend name string ("metal", "cuda", or "vulkan")
+
+    Raises:
+        RuntimeError: If platform unsupported or all backends fail
+    """
+    import genesis as gs
+
+    system = platform.system()
+    print(f"[SYSTEM] Detecting platform: {system}")
+
+    if system == "Darwin":  # macOS
+        print("[SYSTEM] macOS detected, trying Metal backend...")
+        try:
+            gs.init(backend=gs.metal)
+            print("[SYSTEM] ✓ Metal backend initialized successfully")
+            return "metal"
+        except Exception as e:
+            print(f"[SYSTEM] ✗ Metal init failed: {e}")
+            print("[SYSTEM] Falling back to Vulkan...")
+            try:
+                gs.init(backend=gs.vulkan)
+                print("[SYSTEM] ✓ Vulkan backend initialized successfully")
+                return "vulkan"
+            except Exception as e2:
+                raise RuntimeError(f"All backends failed on macOS. Metal: {e}, Vulkan: {e2}")
+
+    elif system == "Linux":
+        print("[SYSTEM] Linux detected, trying CUDA backend...")
+        try:
+            gs.init(backend=gs.cuda)
+            print("[SYSTEM] ✓ CUDA backend initialized successfully")
+            return "cuda"
+        except Exception as e:
+            print(f"[SYSTEM] ✗ CUDA init failed: {e}")
+            print("[SYSTEM] Falling back to Vulkan...")
+            try:
+                gs.init(backend=gs.vulkan)
+                print("[SYSTEM] ✓ Vulkan backend initialized successfully")
+                return "vulkan"
+            except Exception as e2:
+                raise RuntimeError(f"All backends failed on Linux. CUDA: {e}, Vulkan: {e2}")
+
+    elif system == "Windows":
+        print("[SYSTEM] Windows detected, trying CUDA backend...")
+        try:
+            gs.init(backend=gs.cuda)
+            print("[SYSTEM] ✓ CUDA backend initialized successfully")
+            return "cuda"
+        except Exception as e:
+            print(f"[SYSTEM] ✗ CUDA init failed: {e}")
+            print("[SYSTEM] Falling back to Vulkan...")
+            try:
+                gs.init(backend=gs.vulkan)
+                print("[SYSTEM] ✓ Vulkan backend initialized successfully")
+                return "vulkan"
+            except Exception as e2:
+                raise RuntimeError(f"All backends failed on Windows. CUDA: {e}, Vulkan: {e2}")
+
+    else:
+        raise RuntimeError(f"Unsupported platform: {system}")
 
 
 # ============================================================================
@@ -48,6 +128,11 @@ class SystemState:
 
         # GUI
         self.widget_tags: Dict[str, str] = {}
+
+        # Genesis (Phase 2+)
+        self.genesis_scene = None
+        self.genesis_camera = None
+        self.backend: Optional[str] = None
 
         print("[SYSTEM] SystemState initialized")
 
@@ -151,6 +236,134 @@ def initialize_mock_system(
 
     print("[SYSTEM] Main window created")
     print("[SYSTEM] Mock system initialization complete")
+
+    return state
+
+
+# ============================================================================
+# Genesis System Initialization (Phase 2)
+# ============================================================================
+
+def initialize_genesis_system(
+    viewport_width: int = 1280,
+    viewport_height: int = 720,
+) -> SystemState:
+    """
+    Initialize Genesis system for Phase 2 validation.
+
+    This function (Phase 2 - Single-threaded Genesis integration):
+    1. Selects and initializes Genesis backend (Metal/CUDA/Vulkan)
+    2. Creates Genesis scene and test objects
+    3. Creates Genesis camera
+    4. Creates IPC primitives (queues, buffers)
+    5. Initializes metrics infrastructure
+    6. Initializes DPG GUI on main thread
+    7. Creates main window with controls
+
+    Constitutional Compliance:
+    - ALL Genesis/Taichi contexts created on main thread (Principle I)
+    - No background thread yet in Phase 2 (single-threaded validation first)
+    - Phase 3 will add background thread
+
+    Args:
+        viewport_width: Viewport width in pixels (default 1280)
+        viewport_height: Viewport height in pixels (default 720)
+
+    Returns:
+        SystemState with all initialized components
+    """
+    import genesis as gs
+    from src.core.scene_setup import create_test_scene, create_camera
+
+    state = SystemState()
+
+    print("[SYSTEM] Initializing Genesis system (Phase 2)...")
+    print(f"[SYSTEM] Viewport: {viewport_width}x{viewport_height}")
+
+    # ========================================================================
+    # 1. Select and Initialize Genesis Backend (T037-T039)
+    # ========================================================================
+
+    state.backend = select_genesis_backend()
+    print(f"[SYSTEM] Backend selected: {state.backend}")
+
+    # ========================================================================
+    # 2. Create Genesis Scene (T040-T041)
+    # ========================================================================
+
+    print("[SYSTEM] Creating Genesis scene...")
+    state.genesis_scene = gs.Scene(show_viewer=False)
+    create_test_scene(state.genesis_scene)
+    print("[SYSTEM] Genesis scene created")
+
+    # ========================================================================
+    # 3. Create Genesis Camera (T041)
+    # ========================================================================
+
+    state.genesis_camera = create_camera(
+        state.genesis_scene,
+        width=viewport_width,
+        height=viewport_height
+    )
+
+    # ========================================================================
+    # 4. Build Scene (required before rendering)
+    # ========================================================================
+
+    print("[SYSTEM] Building Genesis scene...")
+    state.genesis_scene.build()
+    print("[SYSTEM] Genesis scene built successfully")
+
+    # ========================================================================
+    # 5. Create IPC Primitives
+    # ========================================================================
+
+    state.command_queue = CommandQueue(maxsize=1000)
+    state.event_queue = EventQueue(maxsize=1000)
+    state.frame_buffer = FrameBuffer(width=viewport_width, height=viewport_height)
+    state.plot_buffer = PlotBuffer(maxlen=10000)
+
+    print("[SYSTEM] IPC primitives created")
+
+    # ========================================================================
+    # 6. Initialize Metrics Infrastructure
+    # ========================================================================
+
+    state.frame_lock = TimedLock(threading.Lock(), window_size=1000)
+    state.metrics_collector = MetricsCollector()
+
+    print("[SYSTEM] Metrics infrastructure initialized")
+
+    # ========================================================================
+    # 7. Initialize DPG GUI (Main Thread)
+    # ========================================================================
+
+    initialize_dpg(width=1600, height=900)
+
+    print("[SYSTEM] DPG initialized")
+
+    # ========================================================================
+    # 8. Create Main Window
+    # ========================================================================
+
+    def on_shutdown():
+        """Shutdown callback from GUI exit button."""
+        print("[SYSTEM] Shutdown requested from GUI")
+        # For Phase 2, we don't have a simulation thread yet
+        # Just stop DPG
+        import dearpygui.dearpygui as dpg
+        dpg.stop_dearpygui()
+
+    state.widget_tags = create_main_window(
+        command_queue=state.command_queue,
+        frame_buffer=state.frame_buffer,
+        metrics_collector=state.metrics_collector,
+        on_shutdown=on_shutdown,
+    )
+
+    print("[SYSTEM] Main window created")
+    print("[SYSTEM] Genesis system initialization complete")
+    print("[SYSTEM] NOTE: Phase 2 single-threaded mode - no background simulation thread")
 
     return state
 

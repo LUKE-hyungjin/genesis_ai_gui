@@ -324,3 +324,116 @@ def run_gui_loop(
         dpg.render_dearpygui_frame()
 
     print("[GUI] Render loop exited")
+
+
+# ============================================================================
+# Genesis GUI Render Loop (Phase 2)
+# ============================================================================
+
+def run_genesis_gui_loop(
+    scene,  # Genesis Scene instance
+    camera,  # Genesis Camera instance
+    command_queue: CommandQueue,
+    event_queue: EventQueue,
+    frame_buffer: FrameBuffer,
+    plot_buffer: PlotBuffer,
+    metrics_collector: MetricsCollector,
+    frame_lock,  # TimedLock instance
+    widget_tags: Dict[str, str],
+):
+    """
+    Genesis GUI render loop for Phase 2 (single-threaded mode).
+
+    This function runs on the main thread and:
+    1. Steps Genesis simulation (if playing)
+    2. Renders Genesis frame and writes to frame buffer
+    3. Updates viewport texture from frame buffer
+    4. Updates metrics dashboard
+    5. Renders DPG frame
+
+    Constitutional Compliance:
+    - Runs on main thread (Principle I)
+    - All Genesis operations on main thread (Phase 2 requirement)
+    - Reads/writes shared FrameBuffer with Lock (Principle IV)
+
+    Performance Target:
+    - 60 FPS GUI (16.7ms frame budget)
+
+    Args:
+        scene: Genesis Scene instance
+        camera: Genesis Camera instance
+        command_queue: Command queue (for future playback controls)
+        event_queue: Event queue (for future events)
+        frame_buffer: Frame buffer for viewport
+        plot_buffer: Plot buffer for metrics
+        metrics_collector: Metrics collector
+        frame_lock: TimedLock for frame buffer access timing
+        widget_tags: Widget tags from create_main_window
+    """
+    from src.core.sim_loop import render_genesis_frame
+
+    gui_fps_counter = metrics_collector.gui_fps_counter
+
+    print("[GUI] Starting Genesis render loop (Phase 2 single-threaded)")
+
+    frame_count = 0
+
+    while dpg.is_dearpygui_running():
+        gui_fps_counter.tick()
+
+        # ====================================================================
+        # 1. Step Genesis Simulation (every frame for now)
+        # ====================================================================
+
+        # For Phase 2, we step the simulation every GUI frame
+        # Phase 3 will move this to background thread
+        scene.step()
+
+        # ====================================================================
+        # 2. Render Genesis Frame and Update Frame Buffer
+        # ====================================================================
+
+        with frame_lock:
+            render_genesis_frame(scene, camera, frame_buffer)
+
+        # ====================================================================
+        # 3. Update Viewport from Frame Buffer
+        # ====================================================================
+
+        with frame_lock:
+            update_viewport(widget_tags["viewport"], frame_buffer)
+
+        # ====================================================================
+        # 4. Update Metrics Dashboard
+        # ====================================================================
+
+        # Collect metrics (sim FPS will be ~60 since we step every GUI frame)
+        metrics = metrics_collector.collect(
+            command_queue=command_queue,
+            event_queue=event_queue,
+            frame_lock=frame_lock,
+            plot_buffer=plot_buffer,
+        )
+
+        # Update labels
+        dpg.set_value(widget_tags["gui_fps_label"], f"GUI FPS: {metrics['gui_fps']:.1f}")
+        dpg.set_value(widget_tags["sim_fps_label"], f"Sim FPS: {metrics['sim_fps']:.1f} (Phase 2: locked to GUI)")
+        dpg.set_value(widget_tags["frame_p95_label"], f"Frame p95: {metrics['gui_frame_p95_ms']:.2f}ms")
+        dpg.set_value(widget_tags["lock_p95_label"], f"Lock p95: {metrics['frame_lock_p95_ms']:.2f}ms")
+        dpg.set_value(widget_tags["cmd_queue_label"], f"Cmd Queue: {metrics['command_queue_depth']}")
+        dpg.set_value(widget_tags["evt_queue_label"], f"Evt Queue: {metrics['event_queue_depth']}")
+        dpg.set_value(widget_tags["plot_buffer_label"], f"Plot Buffer: {metrics['plot_buffer_util']*100:.1f}%")
+
+        # ====================================================================
+        # 5. Render DPG Frame
+        # ====================================================================
+
+        dpg.render_dearpygui_frame()
+
+        frame_count += 1
+
+        # Log every 60 frames (~1 second)
+        if frame_count % 60 == 0:
+            print(f"[GUI] Frame {frame_count}: GUI FPS={metrics['gui_fps']:.1f}, Lock p95={metrics['frame_lock_p95_ms']:.2f}ms")
+
+    print("[GUI] Genesis render loop exited")

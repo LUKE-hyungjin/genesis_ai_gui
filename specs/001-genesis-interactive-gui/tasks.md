@@ -91,16 +91,16 @@
 
 ### Backend Selection
 
-- [ ] T037 Implement backend selection logic in src/infra/bootstrap.py (Metal/CUDA/Vulkan per research.md)
-- [ ] T038 Add fallback backend logic in src/infra/bootstrap.py (try primary, fall back to Vulkan)
-- [ ] T039 Add startup logging for backend selection in src/infra/bootstrap.py
+- [X] T037 Implement backend selection logic in src/infra/bootstrap.py (Metal/CUDA/Vulkan per research.md)
+- [X] T038 Add fallback backend logic in src/infra/bootstrap.py (try primary, fall back to Vulkan)
+- [X] T039 Add startup logging for backend selection in src/infra/bootstrap.py
 
 ### Single-Thread Genesis Integration
 
-- [ ] T040 Implement genesis_init function in src/infra/bootstrap.py (gs.init, gs.Scene on main thread)
-- [ ] T041 Create simple test scene in src/core/scene_setup.py (cube, sphere, ground plane, camera)
-- [ ] T042 [P] Implement frame format validation function in src/core/ipc.py (dtype, shape, range checks)
-- [ ] T043 [P] Implement genesis_frame_to_dpg_texture conversion in src/core/ipc.py (ensure float32 RGBA [0..1] flatten)
+- [X] T040 Implement genesis_init function in src/infra/bootstrap.py (gs.init, gs.Scene on main thread)
+- [X] T041 Create simple test scene in src/core/scene_setup.py (cube, sphere, ground plane, camera)
+- [X] T042 [P] Implement frame format validation function in src/core/ipc.py (dtype, shape, range checks)
+- [X] T043 [P] Implement genesis_frame_to_dpg_texture conversion in src/core/ipc.py (ensure float32 RGBA [0..1] flatten)
 
 ### Single-Thread Test Harness
 
@@ -112,11 +112,11 @@
 
 ### Genesis Simulation Loop (No Threading Yet)
 
-- [ ] T049 Replace mock_sim_loop with genesis_sim_loop in src/core/sim_loop.py (but still call from main thread)
-- [ ] T050 Add Genesis scene.step() call in genesis_sim_loop
-- [ ] T051 Add Genesis camera.render() call in genesis_sim_loop
-- [ ] T052 Add frame conversion and buffer write in genesis_sim_loop (convert → flatten → write to frame buffer)
-- [ ] T053 Update src/__main__.py to use genesis_sim_loop (single-threaded mode for Phase 2)
+- [X] T049 Replace mock_sim_loop with genesis_sim_loop in src/core/sim_loop.py (but still call from main thread)
+- [X] T050 Add Genesis scene.step() call in genesis_sim_loop
+- [X] T051 Add Genesis camera.render() call in genesis_sim_loop
+- [X] T052 Add frame conversion and buffer write in genesis_sim_loop (convert → flatten → write to frame buffer)
+- [X] T053 Update src/__main__.py to use genesis_sim_loop (single-threaded mode for Phase 2)
 
 ### Validation
 

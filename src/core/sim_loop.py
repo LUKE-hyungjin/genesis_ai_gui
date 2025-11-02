@@ -256,3 +256,42 @@ def start_mock_sim_thread(
     print(f"[MAIN] Mock simulation thread started: {thread.name}")
 
     return thread, shutdown_event
+
+
+# ============================================================================
+# Genesis Simulation Functions (Phase 2)
+# ============================================================================
+
+def render_genesis_frame(scene, camera, frame_buffer):
+    """
+    Render single Genesis frame and write to frame buffer.
+
+    This function:
+    1. Calls camera.render() to get Genesis frame
+    2. Converts to DPG texture format (float32 RGBA [0..1] flattened)
+    3. Writes to shared frame buffer
+
+    Constitutional Compliance:
+    - Reads/writes shared FrameBuffer with lock (Principle IV)
+    - Output format: float32 RGBA [0..1] flattened (Principle V)
+
+    Args:
+        scene: Genesis scene instance
+        camera: Genesis camera instance
+        frame_buffer: FrameBuffer instance for output
+
+    Returns:
+        Genesis frame in native format (for debugging/validation)
+    """
+    from src.core.ipc import genesis_frame_to_dpg_texture
+
+    # Render frame from Genesis camera
+    genesis_frame = camera.render()
+
+    # Convert to DPG texture format
+    dpg_frame = genesis_frame_to_dpg_texture(genesis_frame)
+
+    # Write to shared frame buffer (with lock)
+    frame_buffer.write(dpg_frame)
+
+    return genesis_frame
