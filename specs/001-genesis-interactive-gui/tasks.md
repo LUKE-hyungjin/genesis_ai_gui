@@ -225,41 +225,41 @@
 
 ### Scene Tree Widget
 
-- [ ] T092 [P] [US3] Implement scene tree widget in src/ui/scene_tree.py (DPG tree node structure)
-- [ ] T093 [P] [US3] Populate scene tree from Genesis scene entities in src/ui/scene_tree.py
-- [ ] T094 [P] [US3] Add selection callback to scene tree in src/ui/scene_tree.py (emit EntitySelectedEvent)
-- [ ] T095 [P] [US3] Add EntitySelectedEvent processing in src/ui/main.py (update inspector)
+- [X] T092 [P] [US3] Implement scene tree widget in src/ui/scene_tree.py (DPG tree node structure)
+- [X] T093 [P] [US3] Populate scene tree from Genesis scene entities in src/ui/scene_tree.py
+- [X] T094 [P] [US3] Add selection callback to scene tree in src/ui/scene_tree.py (emit EntitySelectedEvent)
+- [X] T095 [P] [US3] Add EntitySelectedEvent processing in src/ui/main.py (update inspector)
 
 ### Property Inspector Widget
 
-- [ ] T096 [P] [US3] Implement Inspector class in src/ui/inspector.py with widget registry
-- [ ] T097 [P] [US3] Add widget registry entries in src/ui/inspector.py (float→slider, vec3→input_floatx, bool→checkbox, enum→combo)
-- [ ] T098 [P] [US3] Implement populate_inspector function in src/ui/inspector.py (query entity properties from scene)
-- [ ] T099 [US3] Implement on_preview callback in src/ui/inspector.py (emit PreviewPropertyCommand during drag)
-- [ ] T100 [US3] Implement on_commit callback in src/ui/inspector.py (emit UpdatePropertyCommand on release)
-- [ ] T101 [US3] Store original value at drag start in src/ui/inspector.py (for UpdatePropertyCommand.old_value)
+- [X] T096 [P] [US3] Implement Inspector class in src/ui/inspector.py with widget registry
+- [X] T097 [P] [US3] Add widget registry entries in src/ui/inspector.py (float→slider, vec3→input_floatx, bool→checkbox, enum→combo)
+- [X] T098 [P] [US3] Implement populate_inspector function in src/ui/inspector.py (query entity properties from scene)
+- [X] T099 [US3] Implement on_preview callback in src/ui/inspector.py (emit PreviewPropertyCommand during drag)
+- [X] T100 [US3] Implement on_commit callback in src/ui/inspector.py (emit UpdatePropertyCommand on release)
+- [X] T101 [US3] Store original value at drag start in src/ui/inspector.py (for UpdatePropertyCommand.old_value)
 
 ### Property Command Processing
 
-- [ ] T102 [US3] Implement PreviewPropertyCommand handler in src/core/sim_loop.py (apply temporary change, no Undo)
-- [ ] T103 [US3] Implement UpdatePropertyCommand handler in src/core/sim_loop.py (apply change, push to Undo stack)
-- [ ] T104 [P] [US3] Implement property path resolver in src/core/sim_loop.py (parse "position.x" → nested getattr/setattr)
-- [ ] T105 [P] [US3] Add property change validation in src/core/sim_loop.py (min/max clamp, type check)
+- [X] T102 [US3] Implement PreviewPropertyCommand handler in src/core/sim_loop.py (apply temporary change, no Undo)
+- [X] T103 [US3] Implement UpdatePropertyCommand handler in src/core/sim_loop.py (apply change, push to Undo stack)
+- [X] T104 [P] [US3] Implement property path resolver in src/core/sim_loop.py (parse "position.x" → nested getattr/setattr)
+- [X] T105 [P] [US3] Add property change validation in src/core/sim_loop.py (min/max clamp, type check)
 
 ### Undo/Redo System
 
-- [ ] T106 [P] [US3] Implement UndoStack class in src/core/undo_stack.py (push, undo, redo, can_undo, can_redo)
-- [ ] T107 [US3] Implement UndoCommand handler in src/core/sim_loop.py (pop from undo_stack, apply old_value)
-- [ ] T108 [US3] Implement RedoCommand handler in src/core/sim_loop.py (pop from redo_stack, apply new_value)
-- [ ] T109 [P] [US3] Add keyboard shortcuts in src/ui/main.py (Ctrl+Z → UndoCommand, Ctrl+Shift+Z → RedoCommand)
-- [ ] T110 [US3] Verify redo_stack clears on new UpdatePropertyCommand (not on PreviewPropertyCommand)
+- [X] T106 [P] [US3] Implement UndoStack class in src/core/undo_stack.py (push, undo, redo, can_undo, can_redo)
+- [X] T107 [US3] Implement UndoCommand handler in src/core/sim_loop.py (pop from undo_stack, apply old_value)
+- [X] T108 [US3] Implement RedoCommand handler in src/core/sim_loop.py (pop from redo_stack, apply new_value)
+- [X] T109 [P] [US3] Add keyboard shortcuts in src/ui/main.py (Ctrl+Z → UndoCommand, Ctrl+Shift+Z → RedoCommand)
+- [X] T110 [US3] Verify redo_stack clears on new UpdatePropertyCommand (not on PreviewPropertyCommand)
 
 ### Event Processing
 
-- [ ] T111 [US3] Implement event loop processing in src/ui/main.py (process event_queue every frame)
-- [ ] T112 [P] [US3] Add WidgetUpdateEvent handler in src/ui/main.py (dpg.set_value for metrics)
-- [ ] T113 [P] [US3] Add LogEvent handler in src/ui/main.py (append to console window with color)
-- [ ] T114 [P] [US3] Add PropertyChangedEvent handler in src/ui/main.py (update inspector if selected)
+- [X] T111 [US3] Implement event loop processing in src/ui/main.py (process event_queue every frame)
+- [X] T112 [P] [US3] Add WidgetUpdateEvent handler in src/ui/main.py (dpg.set_value for metrics)
+- [X] T113 [P] [US3] Add LogEvent handler in src/ui/main.py (append to console window with color)
+- [X] T114 [P] [US3] Add PropertyChangedEvent handler in src/ui/main.py (update inspector if selected)
 
 ### Validation
 

@@ -213,7 +213,7 @@ def initialize_mock_system(
     # 4. Initialize DPG GUI (Main Thread)
     # ========================================================================
 
-    initialize_dpg(width=1600, height=900)
+    initialize_dpg(width=1280, height=720)
 
     print("[SYSTEM] DPG initialized")
 
@@ -338,7 +338,7 @@ def initialize_genesis_system(
     # 7. Initialize DPG GUI (Main Thread)
     # ========================================================================
 
-    initialize_dpg(width=1600, height=900)
+    initialize_dpg(width=1280, height=720)
 
     print("[SYSTEM] DPG initialized")
 
@@ -494,7 +494,7 @@ def initialize_genesis_system_threaded(
     # 8. Initialize DPG GUI (Main Thread)
     # ========================================================================
 
-    initialize_dpg(width=1600, height=900)
+    initialize_dpg(width=1280, height=720)
 
     print("[SYSTEM] DPG initialized")
 
@@ -514,6 +514,8 @@ def initialize_genesis_system_threaded(
         command_queue=state.command_queue,
         frame_buffer=state.frame_buffer,
         metrics_collector=state.metrics_collector,
+        event_queue=state.event_queue,
+        genesis_scene=state.genesis_scene,
         on_shutdown=on_shutdown,
     )
 

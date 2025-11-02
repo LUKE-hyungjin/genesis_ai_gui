@@ -140,6 +140,10 @@ class EventQueue:
         """Get event without blocking (raises queue.Empty if empty)."""
         return self._queue.get_nowait()
 
+    def put_nowait(self, event):
+        """Put event without blocking (raises queue.Full if full)."""
+        self._queue.put_nowait(event)
+
     def qsize(self) -> int:
         """Return approximate queue depth."""
         return self._queue.qsize()

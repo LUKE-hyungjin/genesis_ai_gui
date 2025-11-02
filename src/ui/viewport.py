@@ -23,6 +23,8 @@ def create_viewport(
     height: int = 720,
     parent: Optional[int | str] = None,
     tag: str = "viewport_texture",
+    display_width: Optional[int] = None,
+    display_height: Optional[int] = None,
 ) -> str:
     """
     Create DPG viewport texture for displaying simulation frames.
@@ -32,35 +34,53 @@ def create_viewport(
     - float32 RGBA [0..1] format (Principle V)
 
     Args:
-        width: Viewport width in pixels (default 1280)
-        height: Viewport height in pixels (default 720)
+        width: Texture width in pixels (default 1280, must match FrameBuffer)
+        height: Texture height in pixels (default 720, must match FrameBuffer)
         parent: Parent DPG container (default None = root)
         tag: Unique tag for texture (default "viewport_texture")
+        display_width: Image widget display width (default None = use texture width)
+        display_height: Image widget display height (default None = use texture height)
 
     Returns:
         Texture tag string
     """
+    # Handle auto-sizing (-1 means use default 1280x720 for texture)
+    texture_width = 1280 if width == -1 else width
+    texture_height = 720 if height == -1 else height
+
     # Create raw texture with float32 RGBA format
     # Note: DPG expects flattened array (W * H * 4,)
-    default_data = np.zeros((width * height * 4,), dtype=np.float32)
+    default_data = np.zeros((texture_width * texture_height * 4,), dtype=np.float32)
 
     with dpg.texture_registry() as texture_registry:
         dpg.add_raw_texture(
-            width=width,
-            height=height,
+            width=texture_width,
+            height=texture_height,
             default_value=default_data,
             format=dpg.mvFormat_Float_rgba,
             tag=tag,
         )
 
     # Create image widget to display the texture
+    # Use display_width/display_height if provided (Phase 4 responsive layout)
+    # Otherwise use texture dimensions (Phase 3 fixed layout)
     image_tag = f"{tag}_image"
+
+    if display_width is not None and display_height is not None:
+        # Phase 4: Use specified display dimensions (scaled to fit container)
+        image_width = display_width
+        image_height = display_height
+    else:
+        # Phase 3: Use texture dimensions directly
+        image_width = texture_width
+        image_height = texture_height
+
     dpg.add_image(
         texture_tag=tag,
         tag=image_tag,
         parent=parent,
-        width=width,
-        height=height,
+        width=image_width,
+        height=image_height,
     )
 
     return tag
