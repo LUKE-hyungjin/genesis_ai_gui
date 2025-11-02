@@ -303,3 +303,220 @@ def render_genesis_frame(scene, camera, frame_buffer):
     frame_buffer.write(dpg_frame)
 
     return genesis_frame
+
+
+# ============================================================================
+# Genesis Simulation Loop (Phase 3: T059-T063)
+# ============================================================================
+
+class GenesisSimulationState:
+    """
+    State machine for Genesis simulation playback control.
+
+    States:
+    - PAUSED: Not advancing simulation
+    - PLAYING: Continuously advancing simulation
+    - STEP: Advance one frame then return to PAUSED
+
+    Constitutional Compliance: Principle I (Init-Main, Run-Threaded)
+    """
+
+    def __init__(self):
+        """Initialize simulation state."""
+        self.is_playing = True  # Start playing by default
+        self.step_requested = False
+        self.sim_time = 0.0  # Simulation time in seconds
+        self.frame_count = 0
+
+    def handle_command(self, command: BaseCommand):
+        """
+        Process playback control command.
+
+        Args:
+            command: Command to process
+        """
+        if isinstance(command, PlayCommand):
+            self.is_playing = True
+            self.step_requested = False
+            print(f"[SIM] Play command received")
+        elif isinstance(command, PauseCommand):
+            self.is_playing = False
+            self.step_requested = False
+            print(f"[SIM] Pause command received")
+        elif isinstance(command, StepCommand):
+            self.is_playing = False
+            self.step_requested = True
+            print(f"[SIM] Step command received")
+
+    def should_advance(self) -> bool:
+        """
+        Check if simulation should advance this frame.
+
+        Returns:
+            True if should advance (playing or step requested)
+        """
+        if self.step_requested:
+            self.step_requested = False
+            return True
+        return self.is_playing
+
+    def advance(self, dt: float):
+        """
+        Advance simulation state.
+
+        Args:
+            dt: Time step in seconds (typically 0.001 = 1ms @ 1000 Hz)
+        """
+        self.sim_time += dt
+        self.frame_count += 1
+
+
+def genesis_sim_loop(
+    scene,
+    camera,
+    command_queue: CommandQueue,
+    event_queue: EventQueue,
+    frame_buffer: FrameBuffer,
+    plot_buffer: PlotBuffer,
+    fps_counter,  # FPSCounter instance
+    shutdown_event: threading.Event,
+    target_hz: float = 1000.0,
+):
+    """
+    Genesis simulation loop running at max FPS on background thread.
+
+    This function runs in a background thread and:
+    1. Processes commands from GUI (Play/Pause/Step/Shutdown)
+    2. Steps Genesis simulation (scene.step())
+    3. Renders camera frames via camera.render()
+    4. Converts frames to DPG texture format
+    5. Writes frames to shared FrameBuffer
+    6. Emits events back to GUI
+
+    Constitutional Compliance:
+    - Runs on background thread (Principle I, II)
+    - Uses queue.Queue for commands (Principle IV)
+    - Writes to shared numpy.ndarray + Lock for frames (Principle IV)
+    - Genesis/Taichi contexts created on main thread before thread start (Principle I)
+
+    Args:
+        scene: Genesis scene instance (created on main thread)
+        camera: Genesis camera instance (created on main thread)
+        command_queue: Commands from GUI thread
+        event_queue: Events to GUI thread
+        frame_buffer: Shared frame buffer for rendered frames
+        plot_buffer: Circular buffer for time-series data
+        fps_counter: FPSCounter instance for performance tracking
+        shutdown_event: Event to signal shutdown
+        target_hz: Target loop frequency (default 1000 Hz, but may run slower)
+    """
+    state = GenesisSimulationState()
+    dt = 1.0 / target_hz  # Time step per frame (typically 0.001s = 1ms)
+
+    print(f"[SIM] Genesis simulation loop starting (target: {target_hz} Hz)")
+
+    while True:
+        loop_start = time.perf_counter()
+
+        # Track FPS
+        fps_counter.tick()
+
+        # ====================================================================
+        # 1. Check Shutdown Event (T062)
+        # ====================================================================
+
+        if shutdown_event.is_set():
+            print("[SIM] Shutdown event detected, exiting loop")
+            break
+
+        # ====================================================================
+        # 2. Command Processing (T062)
+        # ====================================================================
+
+        # Process all pending commands with timeout (non-blocking)
+        try:
+            command = command_queue.get(timeout=0.01)  # 10ms timeout
+
+            # Handle shutdown
+            if isinstance(command, ShutdownCommand):
+                print("[SIM] Received ShutdownCommand, exiting loop")
+                break
+
+            # Handle playback control
+            state.handle_command(command)
+
+        except queue.Empty:
+            pass
+
+        # ====================================================================
+        # 3. Simulation Step (if playing/stepping)
+        # ====================================================================
+
+        if state.should_advance():
+            # Step Genesis simulation
+            scene.step()
+
+            # Render frame and write to buffer (T075: Frame skip logic)
+            # Render every frame for now - GUI reads latest frame at 60 FPS
+            # If sim FPS >> 60, GUI will naturally skip intermediate frames
+            # Future optimization: render every Nth frame based on FPS ratio
+            render_genesis_frame(scene, camera, frame_buffer)
+
+            # Advance state
+            state.advance(dt)
+
+        # ====================================================================
+        # 4. Rate Limiting (optional - let sim run at max FPS)
+        # ====================================================================
+
+        # No sleep - let simulation run at maximum speed
+        # GUI will read latest frame at its own 60 FPS rate
+        # This creates natural frame skipping when sim FPS >> GUI FPS
+
+    print("[SIM] Genesis simulation loop exited")
+
+
+def start_genesis_sim_thread(
+    scene,
+    camera,
+    command_queue: CommandQueue,
+    event_queue: EventQueue,
+    frame_buffer: FrameBuffer,
+    plot_buffer: PlotBuffer,
+    fps_counter,  # FPSCounter instance
+    target_hz: float = 1000.0,
+) -> Tuple[threading.Thread, threading.Event]:
+    """
+    Start Genesis simulation loop in background thread.
+
+    Constitutional Compliance:
+    - Genesis/Taichi contexts MUST be created on main thread BEFORE calling this (Principle I)
+    - Thread is daemon=True to allow clean shutdown
+    - Returns shutdown_event for coordinated shutdown (Principle VIII)
+
+    Args:
+        scene: Genesis scene instance (created on main thread)
+        camera: Genesis camera instance (created on main thread)
+        command_queue: CommandQueue instance
+        event_queue: EventQueue instance
+        frame_buffer: FrameBuffer instance
+        plot_buffer: PlotBuffer instance
+        fps_counter: FPSCounter instance
+        target_hz: Target loop frequency (default 1000 Hz)
+
+    Returns:
+        Tuple of (thread, shutdown_event)
+    """
+    shutdown_event = threading.Event()
+
+    thread = threading.Thread(
+        target=genesis_sim_loop,
+        args=(scene, camera, command_queue, event_queue, frame_buffer, plot_buffer, fps_counter, shutdown_event, target_hz),
+        name="GenesisSimThread",
+        daemon=True,
+    )
+
+    thread.start()
+    print(f"[MAIN] Genesis simulation thread started: {thread.name}")
+
+    return thread, shutdown_event

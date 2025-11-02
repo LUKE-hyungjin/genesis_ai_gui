@@ -120,11 +120,11 @@
 
 ### Validation
 
-- [ ] T054 Run application in single-threaded mode and verify Genesis scene renders
-- [ ] T055 Verify no green tint, noise, or visual artifacts in viewport
-- [ ] T056 Verify backend initialization logs show correct backend (Metal/CUDA/Vulkan)
-- [ ] T057 Verify no context errors or crashes during initialization
-- [ ] T058 Run texture format validation and confirm all assertions pass
+- [X] T054 Run application in single-threaded mode and verify Genesis scene renders
+- [X] T055 Verify no green tint, noise, or visual artifacts in viewport
+- [X] T056 Verify backend initialization logs show correct backend (Metal/CUDA/Vulkan)
+- [X] T057 Verify no context errors or crashes during initialization
+- [X] T058 Run texture format validation and confirm all assertions pass
 
 **Checkpoint**: Phase 2 complete - Genesis rendering works correctly in single-threaded mode
 
@@ -144,11 +144,11 @@
 
 ### Thread Migration
 
-- [ ] T059 Update src/infra/bootstrap.py to start genesis_sim_loop in background thread (threading.Thread)
-- [ ] T060 Pass all IPC objects to background thread (command_queue, event_queue, frame_buffer, plot_buffer, locks)
-- [ ] T061 Add threading.Event shutdown_flag to coordinate graceful shutdown
-- [ ] T062 Update genesis_sim_loop to check shutdown_flag and command_queue.get(timeout=0.01)
-- [ ] T063 Verify all Genesis/Taichi contexts still created on main thread BEFORE thread start
+- [X] T059 Update src/infra/bootstrap.py to start genesis_sim_loop in background thread (threading.Thread)
+- [X] T060 Pass all IPC objects to background thread (command_queue, event_queue, frame_buffer, plot_buffer, locks)
+- [X] T061 Add threading.Event shutdown_flag to coordinate graceful shutdown
+- [X] T062 Update genesis_sim_loop to check shutdown_flag and command_queue.get(timeout=0.01)
+- [X] T063 Verify all Genesis/Taichi contexts still created on main thread BEFORE thread start
 
 ### User Story 1: Playback Control (P1)
 
@@ -156,13 +156,13 @@
 
 **Independent Test**: Click Play/Pause/Step buttons and verify simulation state changes correctly
 
-- [ ] T064 [US1] Implement Play command processing in genesis_sim_loop (set running flag)
-- [ ] T065 [US1] Implement Pause command processing in genesis_sim_loop (clear running flag)
-- [ ] T066 [US1] Implement Step command processing in genesis_sim_loop (step N times when paused)
-- [ ] T067 [US1] Wire Play button callback in src/ui/main.py to emit PlayCommand
-- [ ] T068 [US1] Wire Pause button callback in src/ui/main.py to emit PauseCommand
-- [ ] T069 [US1] Wire Step button callback in src/ui/main.py to emit StepCommand(steps=1)
-- [ ] T070 [US1] Update playback button states in src/ui/main.py (Play ↔ Pause toggle)
+- [X] T064 [US1] Implement Play command processing in genesis_sim_loop (set running flag)
+- [X] T065 [US1] Implement Pause command processing in genesis_sim_loop (clear running flag)
+- [X] T066 [US1] Implement Step command processing in genesis_sim_loop (step N times when paused)
+- [X] T067 [US1] Wire Play button callback in src/ui/main.py to emit PlayCommand
+- [X] T068 [US1] Wire Pause button callback in src/ui/main.py to emit PauseCommand
+- [X] T069 [US1] Wire Step button callback in src/ui/main.py to emit StepCommand(steps=1)
+- [X] T070 [US1] Update playback button states in src/ui/main.py (Play ↔ Pause toggle)
 - [ ] T071 [US1] Test User Story 1 acceptance scenarios from spec.md (Play → continuous, Pause → freeze, Step → advance 1)
 
 ### User Story 2: Real-time 3D Viewport (P1)
@@ -171,26 +171,26 @@
 
 **Independent Test**: Run simulation at 1000+ FPS and verify viewport displays smooth 60 FPS updates
 
-- [ ] T072 [US2] Verify frame buffer read in GUI loop uses lock correctly in src/ui/main.py
-- [ ] T073 [US2] Verify frame buffer write in sim loop uses lock correctly in src/core/sim_loop.py
-- [ ] T074 [US2] Minimize lock scope in sim loop (convert frame outside lock, only copy inside)
-- [ ] T075 [US2] Add frame skip logic in sim loop (render every Nth step if sim FPS >> 60)
-- [ ] T076 [US2] Optimize frame conversion pipeline to < 3ms per frame
+- [X] T072 [US2] Verify frame buffer read in GUI loop uses lock correctly in src/ui/main.py
+- [X] T073 [US2] Verify frame buffer write in sim loop uses lock correctly in src/core/sim_loop.py
+- [X] T074 [US2] Minimize lock scope in sim loop (convert frame outside lock, only copy inside)
+- [X] T075 [US2] Add frame skip logic in sim loop (render every Nth step if sim FPS >> 60)
+- [X] T076 [US2] Optimize frame conversion pipeline to < 3ms per frame
 - [ ] T077 [US2] Test User Story 2 acceptance scenarios from spec.md (moving bodies at 60 FPS, sim FPS 1000+, frame time p95 ≤ 16.7ms)
 
 ### Metrics & Observability
 
-- [ ] T078 [P] Add queue depth monitoring to metrics dashboard in src/infra/metrics.py
-- [ ] T079 [P] Add lock hold time p95 display to metrics dashboard in src/infra/metrics.py
-- [ ] T080 [P] Add memory usage tracking to metrics dashboard in src/infra/metrics.py
-- [ ] T081 [P] Implement periodic metrics logging (every 60 frames) in src/core/sim_loop.py
+- [X] T078 [P] Add queue depth monitoring to metrics dashboard in src/infra/metrics.py
+- [X] T079 [P] Add lock hold time p95 display to metrics dashboard in src/infra/metrics.py
+- [X] T080 [P] Add memory usage tracking to metrics dashboard in src/infra/metrics.py
+- [X] T081 [P] Implement periodic metrics logging (every 60 frames) in src/core/sim_loop.py
 
 ### Shutdown Sequence
 
-- [ ] T082 Update shutdown sequence in src/infra/bootstrap.py (set flag → put ShutdownCommand → join with timeout)
-- [ ] T083 Add timeout handling in shutdown (log warning if thread doesn't exit)
-- [ ] T084 Update ShutdownCommand processing in genesis_sim_loop (break loop, exit cleanly)
-- [ ] T085 Verify DPG exit callback triggers shutdown sequence correctly
+- [X] T082 Update shutdown sequence in src/infra/bootstrap.py (set flag → put ShutdownCommand → join with timeout)
+- [X] T083 Add timeout handling in shutdown (log warning if thread doesn't exit)
+- [X] T084 Update ShutdownCommand processing in genesis_sim_loop (break loop, exit cleanly)
+- [X] T085 Verify DPG exit callback triggers shutdown sequence correctly
 
 ### Validation
 

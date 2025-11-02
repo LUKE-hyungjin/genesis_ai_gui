@@ -369,6 +369,163 @@ def initialize_genesis_system(
 
 
 # ============================================================================
+# Genesis System Initialization with Threading (Phase 3: T059-T063)
+# ============================================================================
+
+def initialize_genesis_system_threaded(
+    viewport_width: int = 1280,
+    viewport_height: int = 720,
+    sim_hz: float = 1000.0,
+) -> SystemState:
+    """
+    Initialize Genesis system with background simulation thread (Phase 3).
+
+    This function (Phase 3 - Threaded Genesis):
+    1. Selects and initializes Genesis backend (Metal/CUDA/Vulkan) ON MAIN THREAD
+    2. Creates Genesis scene and test objects ON MAIN THREAD
+    3. Creates Genesis camera ON MAIN THREAD
+    4. Builds scene ON MAIN THREAD (required before rendering)
+    5. Creates IPC primitives
+    6. Initializes metrics infrastructure
+    7. Starts Genesis simulation thread (AFTER all contexts created)
+    8. Initializes DPG GUI on main thread
+    9. Creates main window with controls
+
+    Constitutional Compliance:
+    - ALL Genesis/Taichi contexts created on main thread BEFORE thread start (Principle I)
+    - Simulation runs on background thread (Principle II)
+    - Threading.Event for coordinated shutdown (Principle VIII)
+
+    Args:
+        viewport_width: Viewport width in pixels (default 1280)
+        viewport_height: Viewport height in pixels (default 720)
+        sim_hz: Simulation loop target frequency (default 1000 Hz)
+
+    Returns:
+        SystemState with all initialized components including background thread
+    """
+    import genesis as gs
+    from src.core.scene_setup import create_test_scene, create_camera
+    from src.core.sim_loop import start_genesis_sim_thread
+
+    state = SystemState()
+
+    print("=" * 70)
+    print("Genesis Interactive GUI - Phase 3: Dual-Loop Architecture")
+    print("=" * 70)
+    print("[SYSTEM] Initializing Genesis system (Phase 3 - Threaded)...")
+    print(f"[SYSTEM] Viewport: {viewport_width}x{viewport_height}")
+    print(f"[SYSTEM] Sim target: {sim_hz} Hz")
+
+    # ========================================================================
+    # 1. Select and Initialize Genesis Backend ON MAIN THREAD (T063)
+    # ========================================================================
+
+    state.backend = select_genesis_backend()
+    print(f"[SYSTEM] Backend selected: {state.backend}")
+
+    # ========================================================================
+    # 2. Create Genesis Scene ON MAIN THREAD (T063)
+    # ========================================================================
+
+    print("[SYSTEM] Creating Genesis scene...")
+    state.genesis_scene = gs.Scene(show_viewer=False)
+    create_test_scene(state.genesis_scene)
+    print("[SYSTEM] Genesis scene created")
+
+    # ========================================================================
+    # 3. Create Genesis Camera ON MAIN THREAD (T063)
+    # ========================================================================
+
+    state.genesis_camera = create_camera(
+        state.genesis_scene,
+        width=viewport_width,
+        height=viewport_height
+    )
+
+    # ========================================================================
+    # 4. Build Scene ON MAIN THREAD (T063)
+    # ========================================================================
+
+    print("[SYSTEM] Building Genesis scene...")
+    state.genesis_scene.build()
+    print("[SYSTEM] Genesis scene built successfully")
+    print("[SYSTEM] ✓ All Genesis/Taichi contexts created on main thread")
+
+    # ========================================================================
+    # 5. Create IPC Primitives (T060)
+    # ========================================================================
+
+    state.command_queue = CommandQueue(maxsize=1000)
+    state.event_queue = EventQueue(maxsize=1000)
+    state.frame_buffer = FrameBuffer(width=viewport_width, height=viewport_height)
+    state.plot_buffer = PlotBuffer(maxlen=10000)
+
+    print("[SYSTEM] IPC primitives created")
+
+    # ========================================================================
+    # 6. Initialize Metrics Infrastructure (T060)
+    # ========================================================================
+
+    state.frame_lock = TimedLock(threading.Lock(), window_size=1000)
+    state.metrics_collector = MetricsCollector()
+
+    print("[SYSTEM] Metrics infrastructure initialized")
+
+    # ========================================================================
+    # 7. Start Genesis Simulation Thread (T059, T060, T061)
+    # ========================================================================
+
+    print("[SYSTEM] Starting Genesis simulation thread...")
+    state.sim_thread, state.shutdown_event = start_genesis_sim_thread(
+        scene=state.genesis_scene,
+        camera=state.genesis_camera,
+        command_queue=state.command_queue,
+        event_queue=state.event_queue,
+        frame_buffer=state.frame_buffer,
+        plot_buffer=state.plot_buffer,
+        fps_counter=state.metrics_collector.sim_fps_counter,
+        target_hz=sim_hz,
+    )
+
+    print("[SYSTEM] ✓ Genesis simulation thread started")
+
+    # ========================================================================
+    # 8. Initialize DPG GUI (Main Thread)
+    # ========================================================================
+
+    initialize_dpg(width=1600, height=900)
+
+    print("[SYSTEM] DPG initialized")
+
+    # ========================================================================
+    # 9. Create Main Window
+    # ========================================================================
+
+    def on_shutdown():
+        """Shutdown callback from GUI exit button."""
+        print("[SYSTEM] Shutdown requested from GUI")
+        # Signal shutdown via event
+        state.shutdown_event.set()
+        # Also send shutdown command
+        state.command_queue.put(ShutdownCommand())
+
+    state.widget_tags = create_main_window(
+        command_queue=state.command_queue,
+        frame_buffer=state.frame_buffer,
+        metrics_collector=state.metrics_collector,
+        on_shutdown=on_shutdown,
+    )
+
+    print("[SYSTEM] Main window created")
+    print("[SYSTEM] Genesis system initialization complete (Phase 3)")
+    print("[SYSTEM] Background thread running - GUI and Sim loops now independent")
+    print("=" * 70)
+
+    return state
+
+
+# ============================================================================
 # System Shutdown
 # ============================================================================
 

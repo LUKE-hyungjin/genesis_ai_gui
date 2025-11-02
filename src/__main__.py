@@ -9,7 +9,12 @@ Constitutional Compliance: Principle I (Init-Main, Run-Threaded)
 import sys
 import signal
 
-from src.infra.bootstrap import initialize_mock_system, initialize_genesis_system, shutdown_system
+from src.infra.bootstrap import (
+    initialize_mock_system,
+    initialize_genesis_system,
+    initialize_genesis_system_threaded,
+    shutdown_system
+)
 from src.ui.main import run_gui_loop, run_genesis_gui_loop
 
 
@@ -156,9 +161,88 @@ def main_phase2():
     print("=" * 70)
 
 
-if __name__ == "__main__":
-    # Phase 2: Genesis Integration (single-threaded)
-    main_phase2()
+def main_phase3():
+    """
+    Main application entry point for Phase 3 (Dual-Loop Architecture).
 
-    # Phase 1: Mock Threading (comment out for Phase 2)
+    This function:
+    1. Initializes Genesis system with background simulation thread
+    2. Sets up signal handlers for clean shutdown
+    3. Runs the GUI render loop on main thread (independent from sim)
+    4. Performs cleanup on exit
+
+    Phase 3 Features:
+    - Dual-loop architecture: GUI (60 FPS) + Sim (max FPS) independent
+    - Background simulation thread with Genesis
+    - Playback control via commands (Play/Pause/Step)
+    - Clean shutdown with thread coordination
+
+    Constitutional Compliance:
+    - All Genesis/Taichi contexts initialized on main thread BEFORE thread start
+    - Simulation runs on background thread
+    - GUI runs on main thread
+    """
+    # No header print here - initialize_genesis_system_threaded() prints it
+
+    # ========================================================================
+    # 1. Initialize Genesis System with Background Thread
+    # ========================================================================
+
+    state = initialize_genesis_system_threaded(
+        viewport_width=1280,
+        viewport_height=720,
+        sim_hz=1000.0,
+    )
+
+    # ========================================================================
+    # 2. Setup Signal Handlers
+    # ========================================================================
+
+    def signal_handler(sig, frame):
+        """Handle SIGINT (Ctrl+C) gracefully."""
+        print("\n[MAIN] SIGINT received, shutting down...")
+        shutdown_system(state)
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, signal_handler)
+
+    # ========================================================================
+    # 3. Run GUI Loop (Main Thread) - Sim runs independently on background
+    # ========================================================================
+
+    try:
+        run_gui_loop(
+            command_queue=state.command_queue,
+            event_queue=state.event_queue,
+            frame_buffer=state.frame_buffer,
+            plot_buffer=state.plot_buffer,
+            metrics_collector=state.metrics_collector,
+            frame_lock=state.frame_lock,
+            widget_tags=state.widget_tags,
+        )
+    except KeyboardInterrupt:
+        print("\n[MAIN] KeyboardInterrupt, shutting down...")
+    except Exception as e:
+        print(f"[MAIN] Error in GUI loop: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        # ====================================================================
+        # 4. Cleanup
+        # ====================================================================
+        shutdown_system(state)
+
+    print("=" * 70)
+    print("Genesis Interactive GUI - Exited")
+    print("=" * 70)
+
+
+if __name__ == "__main__":
+    # Phase 3: Dual-Loop Architecture (threaded Genesis)
+    main_phase3()
+
+    # Phase 2: Genesis Integration (single-threaded)
+    # main_phase2()
+
+    # Phase 1: Mock Threading
     # main_phase1()
