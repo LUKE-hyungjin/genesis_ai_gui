@@ -74,7 +74,7 @@ class SceneTreeWidget:
                 default_open=True,
             ):
                 # Entities will be populated here
-                dpg.add_text("(No entities loaded)", color=(150, 150, 150))
+                dpg.add_text("(No entities loaded)", tag=f"{self.root_tag}_placeholder", color=(150, 150, 150))
 
     def populate_from_scene(self, scene):
         """
