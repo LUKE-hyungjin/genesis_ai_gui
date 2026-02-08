@@ -321,7 +321,7 @@ class GenesisSimulationState:
     States:
     - PAUSED: Not advancing simulation
     - PLAYING: Continuously advancing simulation
-    - STEP: Advance one frame then return to PAUSED
+    - STEP: Advance N frames then return to PAUSED
 
     Constitutional Compliance:
     - Principle I (Init-Main, Run-Threaded)
@@ -339,7 +339,7 @@ class GenesisSimulationState:
         """
         # Playback state
         self.is_playing = True  # Start playing by default
-        self.step_requested = False
+        self.steps_remaining = 0  # Number of step frames remaining
         self.sim_time = 0.0  # Simulation time in seconds
         self.frame_count = 0
 
@@ -363,16 +363,16 @@ class GenesisSimulationState:
         # Playback commands
         if isinstance(command, PlayCommand):
             self.is_playing = True
-            self.step_requested = False
+            self.steps_remaining = 0
             print(f"[SIM] Play command received")
         elif isinstance(command, PauseCommand):
             self.is_playing = False
-            self.step_requested = False
+            self.steps_remaining = 0
             print(f"[SIM] Pause command received")
         elif isinstance(command, StepCommand):
             self.is_playing = False
-            self.step_requested = True
-            print(f"[SIM] Step command received")
+            self.steps_remaining = command.steps
+            print(f"[SIM] Step command received (steps={command.steps})")
 
         # Property editing commands (Phase 4)
         elif isinstance(command, PreviewPropertyCommand):
@@ -538,10 +538,10 @@ class GenesisSimulationState:
         Check if simulation should advance this frame.
 
         Returns:
-            True if should advance (playing or step requested)
+            True if should advance (playing or steps remaining)
         """
-        if self.step_requested:
-            self.step_requested = False
+        if self.steps_remaining > 0:
+            self.steps_remaining -= 1
             return True
         return self.is_playing
 
@@ -618,17 +618,18 @@ def genesis_sim_loop(
         # 2. Command Processing (T062)
         # ====================================================================
 
-        # Process all pending commands with timeout (non-blocking)
+        # Process all pending commands (non-blocking drain)
         try:
-            command = command_queue.get(timeout=0.01)  # 10ms timeout
+            while True:
+                command = command_queue.get_nowait()
 
-            # Handle shutdown
-            if isinstance(command, ShutdownCommand):
-                print("[SIM] Received ShutdownCommand, exiting loop")
-                break
+                # Handle shutdown
+                if isinstance(command, ShutdownCommand):
+                    print("[SIM] Received ShutdownCommand, exiting loop")
+                    return
 
-            # Handle playback control
-            state.handle_command(command)
+                # Handle playback control and property editing
+                state.handle_command(command)
 
         except queue.Empty:
             pass
@@ -654,9 +655,12 @@ def genesis_sim_loop(
         # 4. Rate Limiting (optional - let sim run at max FPS)
         # ====================================================================
 
-        # No sleep - let simulation run at maximum speed
+        # No sleep when playing - let simulation run at maximum speed
         # GUI will read latest frame at its own 60 FPS rate
         # This creates natural frame skipping when sim FPS >> GUI FPS
+        # Brief sleep when paused to avoid busy-waiting
+        if not state.is_playing:
+            time.sleep(0.001)  # 1ms sleep when paused to reduce CPU usage
 
     print("[SIM] Genesis simulation loop exited")
 

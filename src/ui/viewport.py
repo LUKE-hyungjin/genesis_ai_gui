@@ -9,7 +9,7 @@ Constitutional Compliance: Principle V (Viewport Pipeline Spec)
 
 import dearpygui.dearpygui as dpg
 import numpy as np
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 from src.core.ipc import FrameBuffer
 
@@ -21,7 +21,7 @@ from src.core.ipc import FrameBuffer
 def create_viewport(
     width: int = 1280,
     height: int = 720,
-    parent: Optional[int | str] = None,
+    parent: Optional[Union[int, str]] = None,
     tag: str = "viewport_texture",
     display_width: Optional[int] = None,
     display_height: Optional[int] = None,

@@ -83,8 +83,9 @@ def create_main_window(
     frame_buffer: FrameBuffer,
     metrics_collector: MetricsCollector,
     event_queue: Optional[EventQueue] = None,
-    genesis_scene = None,
+    genesis_scene=None,
     on_shutdown: Optional[Callable] = None,
+    scene_lock=None,
 ) -> Dict[str, str]:
     """
     Create main window with viewport, controls, metrics, and Phase 4 widgets.
@@ -105,6 +106,7 @@ def create_main_window(
         event_queue: Event queue for Phase 4 entity selection events (None = Phase 3 mode)
         genesis_scene: Genesis scene reference for Phase 4 scene tree
         on_shutdown: Callback to trigger on exit button
+        scene_lock: Lock for thread-safe scene state reads in inspector
 
     Returns:
         Dictionary with widget tags for later access
@@ -141,10 +143,9 @@ def create_main_window(
                     dpg.add_text("Scene Tree", color=(255, 255, 0))
                     dpg.add_separator()
 
-                    # Create scene tree widget
+                    # Create scene tree widget (callback wired after inspector creation)
                     scene_tree_widget = create_scene_tree(
                         parent_tag="scene_tree_panel",
-                        event_queue=event_queue,
                         width=280,
                         height=600,
                     )
@@ -302,6 +303,7 @@ def create_main_window(
                         command_queue=command_queue,
                         width=280,
                         height=200,
+                        scene_lock=scene_lock,
                     )
 
                     # Set scene reference if available
@@ -329,6 +331,23 @@ def create_main_window(
                     width=-1,
                     tag="exit_button",
                 )
+
+    # ====================================================================
+    # Wire Scene Tree → Inspector (direct callback, no event queue)
+    # ====================================================================
+
+    if phase4_enabled:
+        _scene_tree = tags.get("scene_tree_widget")
+        _inspector = tags.get("inspector_widget")
+
+        if _scene_tree is not None and _inspector is not None:
+            def _on_entity_selected(entity_id):
+                if entity_id is not None:
+                    _inspector.populate_inspector(entity_id)
+                else:
+                    _inspector.clear()
+
+            _scene_tree.set_on_select(_on_entity_selected)
 
     dpg.set_primary_window("main_window", True)
     tags["main_window"] = "main_window"
@@ -403,8 +422,9 @@ def run_gui_loop(
         # 2. Update Viewport from Frame Buffer
         # ====================================================================
 
-        with frame_lock:
-            update_viewport(widget_tags["viewport"], frame_buffer)
+        # FrameBuffer.read() uses its internal lock (shared TimedLock)
+        # so no external lock wrapping needed here
+        update_viewport(widget_tags["viewport"], frame_buffer)
 
         # ====================================================================
         # 3. Refresh Property Inspector (Phase 4)
@@ -511,15 +531,15 @@ def run_genesis_gui_loop(
         # 2. Render Genesis Frame and Update Frame Buffer
         # ====================================================================
 
-        with frame_lock:
-            render_genesis_frame(scene, camera, frame_buffer)
+        # FrameBuffer.write() uses its internal lock (shared TimedLock)
+        render_genesis_frame(scene, camera, frame_buffer)
 
         # ====================================================================
         # 3. Update Viewport from Frame Buffer
         # ====================================================================
 
-        with frame_lock:
-            update_viewport(widget_tags["viewport"], frame_buffer)
+        # FrameBuffer.read() uses its internal lock (shared TimedLock)
+        update_viewport(widget_tags["viewport"], frame_buffer)
 
         # ====================================================================
         # 4. Update Metrics Dashboard
@@ -632,26 +652,35 @@ def setup_keyboard_shortcuts(command_queue: CommandQueue):
         command_queue: Command queue for sending commands
     """
     with dpg.handler_registry(tag="keyboard_handler"):
-        # Undo: Ctrl+Z
+        # Undo/Redo commands
         def on_undo():
             command_queue.put(UndoCommand())
             print("[GUI] Sent UndoCommand (Ctrl+Z)")
 
-        dpg.add_key_release_handler(
-            key=dpg.mvKey_Z,
-            callback=lambda: on_undo() if dpg.is_key_down(dpg.mvKey_LControl) or dpg.is_key_down(dpg.mvKey_RControl) else None
-        )
-
-        # Redo: Ctrl+Shift+Z
         def on_redo():
             command_queue.put(RedoCommand())
-            print("[GUI] Sent RedoCommand (Ctrl+Shift+Z)")
+            print("[GUI] Sent RedoCommand")
 
-        # Note: DPG doesn't have great multi-key support, so we use separate handler
-        # Users can press Ctrl+Y as alternative for Redo
+        # Ctrl+Z = Undo, Ctrl+Shift+Z = Redo
+        def on_z_release():
+            ctrl = dpg.is_key_down(dpg.mvKey_LControl) or dpg.is_key_down(dpg.mvKey_RControl)
+            if not ctrl:
+                return
+            shift = dpg.is_key_down(dpg.mvKey_LShift) or dpg.is_key_down(dpg.mvKey_RShift)
+            if shift:
+                on_redo()
+            else:
+                on_undo()
+
         dpg.add_key_release_handler(
-            key=dpg.mvKey_Y,
-            callback=lambda: on_redo() if dpg.is_key_down(dpg.mvKey_LControl) or dpg.is_key_down(dpg.mvKey_RControl) else None
+            key=dpg.mvKey_Z,
+            callback=lambda: on_z_release(),
         )
 
-    print("[GUI] Keyboard shortcuts registered (Ctrl+Z=Undo, Ctrl+Y=Redo)")
+        # Ctrl+Y = Redo (alternative shortcut)
+        dpg.add_key_release_handler(
+            key=dpg.mvKey_Y,
+            callback=lambda: on_redo() if dpg.is_key_down(dpg.mvKey_LControl) or dpg.is_key_down(dpg.mvKey_RControl) else None,
+        )
+
+    print("[GUI] Keyboard shortcuts registered (Ctrl+Z=Undo, Ctrl+Shift+Z/Ctrl+Y=Redo)")

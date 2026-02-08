@@ -175,24 +175,24 @@ def initialize_mock_system(
     print(f"[SYSTEM] Sim target: {sim_hz} Hz")
 
     # ========================================================================
-    # 1. Create IPC Primitives
-    # ========================================================================
-
-    state.command_queue = CommandQueue(maxsize=1000)
-    state.event_queue = EventQueue(maxsize=1000)
-    state.frame_buffer = FrameBuffer(width=viewport_width, height=viewport_height)
-    state.plot_buffer = PlotBuffer(maxlen=10000)
-
-    print("[SYSTEM] IPC primitives created")
-
-    # ========================================================================
-    # 2. Initialize Metrics Infrastructure
+    # 1. Initialize Metrics Infrastructure (before IPC so TimedLock can be shared)
     # ========================================================================
 
     state.frame_lock = TimedLock(threading.Lock(), window_size=1000)
     state.metrics_collector = MetricsCollector()
 
     print("[SYSTEM] Metrics infrastructure initialized")
+
+    # ========================================================================
+    # 2. Create IPC Primitives (FrameBuffer uses shared TimedLock)
+    # ========================================================================
+
+    state.command_queue = CommandQueue(maxsize=1000)
+    state.event_queue = EventQueue(maxsize=1000)
+    state.frame_buffer = FrameBuffer(width=viewport_width, height=viewport_height, lock=state.frame_lock)
+    state.plot_buffer = PlotBuffer(maxlen=10000)
+
+    print("[SYSTEM] IPC primitives created")
 
     # ========================================================================
     # 3. Start Mock Simulation Thread
@@ -315,24 +315,24 @@ def initialize_genesis_system(
     print("[SYSTEM] Genesis scene built successfully")
 
     # ========================================================================
-    # 5. Create IPC Primitives
-    # ========================================================================
-
-    state.command_queue = CommandQueue(maxsize=1000)
-    state.event_queue = EventQueue(maxsize=1000)
-    state.frame_buffer = FrameBuffer(width=viewport_width, height=viewport_height)
-    state.plot_buffer = PlotBuffer(maxlen=10000)
-
-    print("[SYSTEM] IPC primitives created")
-
-    # ========================================================================
-    # 6. Initialize Metrics Infrastructure
+    # 5. Initialize Metrics Infrastructure (before IPC so TimedLock can be shared)
     # ========================================================================
 
     state.frame_lock = TimedLock(threading.Lock(), window_size=1000)
     state.metrics_collector = MetricsCollector()
 
     print("[SYSTEM] Metrics infrastructure initialized")
+
+    # ========================================================================
+    # 6. Create IPC Primitives (FrameBuffer uses shared TimedLock)
+    # ========================================================================
+
+    state.command_queue = CommandQueue(maxsize=1000)
+    state.event_queue = EventQueue(maxsize=1000)
+    state.frame_buffer = FrameBuffer(width=viewport_width, height=viewport_height, lock=state.frame_lock)
+    state.plot_buffer = PlotBuffer(maxlen=10000)
+
+    print("[SYSTEM] IPC primitives created")
 
     # ========================================================================
     # 7. Initialize DPG GUI (Main Thread)
@@ -453,24 +453,24 @@ def initialize_genesis_system_threaded(
     print("[SYSTEM] ✓ All Genesis/Taichi contexts created on main thread")
 
     # ========================================================================
-    # 5. Create IPC Primitives (T060)
-    # ========================================================================
-
-    state.command_queue = CommandQueue(maxsize=1000)
-    state.event_queue = EventQueue(maxsize=1000)
-    state.frame_buffer = FrameBuffer(width=viewport_width, height=viewport_height)
-    state.plot_buffer = PlotBuffer(maxlen=10000)
-
-    print("[SYSTEM] IPC primitives created")
-
-    # ========================================================================
-    # 6. Initialize Metrics Infrastructure (T060)
+    # 5. Initialize Metrics Infrastructure (before IPC so TimedLock can be shared)
     # ========================================================================
 
     state.frame_lock = TimedLock(threading.Lock(), window_size=1000)
     state.metrics_collector = MetricsCollector()
 
     print("[SYSTEM] Metrics infrastructure initialized")
+
+    # ========================================================================
+    # 6. Create IPC Primitives (FrameBuffer uses shared TimedLock) (T060)
+    # ========================================================================
+
+    state.command_queue = CommandQueue(maxsize=1000)
+    state.event_queue = EventQueue(maxsize=1000)
+    state.frame_buffer = FrameBuffer(width=viewport_width, height=viewport_height, lock=state.frame_lock)
+    state.plot_buffer = PlotBuffer(maxlen=10000)
+
+    print("[SYSTEM] IPC primitives created")
 
     # ========================================================================
     # 7. Start Genesis Simulation Thread (T059, T060, T061)
@@ -517,6 +517,7 @@ def initialize_genesis_system_threaded(
         event_queue=state.event_queue,
         genesis_scene=state.genesis_scene,
         on_shutdown=on_shutdown,
+        scene_lock=state.frame_lock,
     )
 
     print("[SYSTEM] Main window created")

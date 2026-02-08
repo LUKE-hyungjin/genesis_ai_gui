@@ -174,13 +174,15 @@ class FrameBuffer:
     - Copy time ~0.5ms @ 1080p
     """
 
-    def __init__(self, width: int, height: int):
+    def __init__(self, width: int, height: int, lock: Optional[threading.Lock] = None):
         """
         Initialize frame buffer.
 
         Args:
             width: Viewport width in pixels
             height: Viewport height in pixels
+            lock: Optional external lock (e.g., TimedLock) for synchronized access.
+                  If None, creates an internal threading.Lock.
         """
         self.width = width
         self.height = height
@@ -189,8 +191,8 @@ class FrameBuffer:
         # Shared array (float32 RGBA [0..1] flattened)
         self.data = np.zeros(self.size, dtype=np.float32)
 
-        # Thread synchronization
-        self.lock = threading.Lock()
+        # Thread synchronization (use external lock if provided)
+        self.lock = lock if lock is not None else threading.Lock()
 
     def write(self, frame: np.ndarray):
         """

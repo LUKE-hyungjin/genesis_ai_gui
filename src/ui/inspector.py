@@ -14,7 +14,7 @@ Tasks: T096-T101
 """
 
 import dearpygui.dearpygui as dpg
-from typing import Optional, Dict, Any, Callable, Tuple
+from typing import Optional, Dict, Any, Callable, Tuple, List
 from dataclasses import dataclass
 from src.core.commands import PreviewPropertyCommand, UpdatePropertyCommand
 
@@ -53,7 +53,7 @@ class PropertyInspectorWidget:
     - Original value stored at drag start for Undo support
     """
 
-    def __init__(self, parent_tag: str, command_queue, width: int = 300, height: int = 600):
+    def __init__(self, parent_tag: str, command_queue, width: int = 300, height: int = 600, scene_lock=None):
         """
         Initialize property inspector.
 
@@ -62,11 +62,14 @@ class PropertyInspectorWidget:
             command_queue: Command queue for property edit commands
             width: Inspector width in pixels
             height: Inspector height in pixels
+            scene_lock: Optional lock for thread-safe scene state reads.
+                         Should be the same lock used by FrameBuffer (TimedLock).
         """
         self.parent_tag = parent_tag
         self.command_queue = command_queue
         self.width = width
         self.height = height
+        self.scene_lock = scene_lock
 
         # Inspector state
         self.current_entity_id: Optional[int] = None
@@ -149,7 +152,7 @@ class PropertyInspectorWidget:
         for prop in properties:
             self._add_property_widget(prop)
 
-    def _query_entity_properties(self, entity_id: int) -> list[PropertyMetadata]:
+    def _query_entity_properties(self, entity_id: int) -> List[PropertyMetadata]:
         """
         Query entity properties from scene.
 
@@ -307,7 +310,10 @@ class PropertyInspectorWidget:
 
     def _get_property_value(self, property_path: str) -> Any:
         """
-        Get current property value from scene.
+        Get current property value from scene (thread-safe).
+
+        Uses scene_lock to synchronize with simulation thread when reading
+        entity state, preventing race conditions.
 
         Args:
             property_path: Property path (e.g., "position.x")
@@ -328,35 +334,53 @@ class PropertyInspectorWidget:
             # Parse property path
             path_parts = property_path.split('.')
 
-            if path_parts[0] == 'position':
-                # Get position from entity
-                pos = entity.get_pos()
-
-                # Convert to list if needed
-                if hasattr(pos, 'tolist'):
-                    pos_list = pos.tolist()
-                else:
-                    pos_list = list(pos)
-
-                # Return specific axis
-                if len(path_parts) == 2:
-                    axis = path_parts[1].lower()
-                    if axis == 'x':
-                        return float(pos_list[0])
-                    elif axis == 'y':
-                        return float(pos_list[1])
-                    elif axis == 'z':
-                        return float(pos_list[2])
-
-            # Generic property access (for future properties)
-            obj = entity
-            for part in path_parts:
-                obj = getattr(obj, part)
-            return obj
+            # Use scene_lock for thread-safe reads if available
+            if self.scene_lock is not None:
+                with self.scene_lock:
+                    return self._read_property(entity, path_parts)
+            else:
+                return self._read_property(entity, path_parts)
 
         except Exception as e:
             print(f"[INSPECTOR] Failed to get property {property_path}: {e}")
             return 0.0
+
+    def _read_property(self, entity, path_parts: list) -> Any:
+        """
+        Read property value from entity (must be called under lock if threaded).
+
+        Args:
+            entity: Genesis entity object
+            path_parts: Property path split into parts
+
+        Returns:
+            Property value
+        """
+        if path_parts[0] == 'position':
+            # Get position from entity
+            pos = entity.get_pos()
+
+            # Convert to list if needed
+            if hasattr(pos, 'tolist'):
+                pos_list = pos.tolist()
+            else:
+                pos_list = list(pos)
+
+            # Return specific axis
+            if len(path_parts) == 2:
+                axis = path_parts[1].lower()
+                if axis == 'x':
+                    return float(pos_list[0])
+                elif axis == 'y':
+                    return float(pos_list[1])
+                elif axis == 'z':
+                    return float(pos_list[2])
+
+        # Generic property access (for future properties)
+        obj = entity
+        for part in path_parts:
+            obj = getattr(obj, part)
+        return obj
 
     def _on_drag_start(self, property_path: str):
         """
@@ -467,11 +491,16 @@ class PropertyInspectorWidget:
         Constitutional Compliance: T100
         - Emits UpdatePropertyCommand immediately (no drag)
         - Uses previous value as old_value
+        - Skips if value unchanged (avoids UpdatePropertyCommand validation error)
         """
         if self.current_entity_id is None:
             return
 
         old_value = self._get_property_value(property_path)
+
+        # Skip if value unchanged
+        if old_value == value:
+            return
 
         # Emit update command
         command = UpdatePropertyCommand(
@@ -537,7 +566,9 @@ class PropertyInspectorWidget:
             return
 
         # Update each property widget with current value from scene
-        for prop_path, widget_tag in self.property_widgets.items():
+        # Use list() snapshot to avoid RuntimeError if populate_inspector
+        # modifies property_widgets during iteration (entity selection mid-frame)
+        for prop_path, widget_tag in list(self.property_widgets.items()):
             # Skip if widget doesn't exist
             if not dpg.does_item_exist(widget_tag):
                 continue
@@ -566,6 +597,7 @@ def create_property_inspector(
     command_queue,
     width: int = 300,
     height: int = 600,
+    scene_lock=None,
 ) -> PropertyInspectorWidget:
     """
     Create and return property inspector widget.
@@ -575,6 +607,7 @@ def create_property_inspector(
         command_queue: Command queue for property edit commands
         width: Inspector width
         height: Inspector height
+        scene_lock: Optional lock for thread-safe scene state reads
 
     Returns:
         PropertyInspectorWidget instance
@@ -588,4 +621,5 @@ def create_property_inspector(
         command_queue=command_queue,
         width=width,
         height=height,
+        scene_lock=scene_lock,
     )
