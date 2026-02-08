@@ -11,6 +11,44 @@ import genesis as gs
 
 
 # ============================================================================
+# Scene Metrics (Phase 5: T125)
+# ============================================================================
+
+def compute_kinetic_energy(scene) -> float:
+    """
+    Compute total kinetic energy of all dynamic entities.
+
+    KE = sum(0.5 * m * |v|^2) for entities with velocity.
+
+    Args:
+        scene: Genesis scene object
+
+    Returns:
+        Total kinetic energy (float)
+    """
+    total_ke = 0.0
+    try:
+        for entity in scene.entities:
+            if not hasattr(entity, 'get_vel'):
+                continue
+            vel = entity.get_vel()
+            if hasattr(vel, 'tolist'):
+                vel = vel.tolist()
+            elif hasattr(vel, '__iter__'):
+                vel = list(vel)
+            else:
+                continue
+            mass = getattr(entity, 'mass', 1.0)
+            if hasattr(mass, 'item'):
+                mass = mass.item()
+            speed_sq = sum(v ** 2 for v in vel)
+            total_ke += 0.5 * float(mass) * speed_sq
+    except Exception:
+        pass
+    return total_ke
+
+
+# ============================================================================
 # Scene Creation (Phase 2: T041)
 # ============================================================================
 

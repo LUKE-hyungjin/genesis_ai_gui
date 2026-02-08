@@ -187,7 +187,7 @@ class MetricsCollector:
         self.gui_fps_counter = FPSCounter(window_size=100)
         self.sim_fps_counter = FPSCounter(window_size=100)
 
-    def collect(self, command_queue, event_queue, frame_lock, plot_buffer) -> dict:
+    def collect(self, command_queue, event_queue, frame_lock, plot_buffers=None) -> dict:
         """
         Collect all metrics.
 
@@ -195,11 +195,21 @@ class MetricsCollector:
             command_queue: CommandQueue instance
             event_queue: EventQueue instance
             frame_lock: TimedLock instance for frame buffer
-            plot_buffer: PlotBuffer instance
+            plot_buffers: Dict[str, PlotBuffer] or single PlotBuffer (backward compat)
 
         Returns:
             Dictionary with all metrics
         """
+        # Plot buffer utilization (max across all buffers)
+        plot_util = 0.0
+        if plot_buffers is not None:
+            if isinstance(plot_buffers, dict):
+                if plot_buffers:
+                    plot_util = max(b.utilization() for b in plot_buffers.values())
+            else:
+                # Backward compat: single PlotBuffer
+                plot_util = plot_buffers.utilization()
+
         return {
             "gui_fps": self.gui_fps_counter.get_fps(),
             "gui_frame_p95_ms": self.gui_fps_counter.get_p95_ms(),
@@ -207,7 +217,7 @@ class MetricsCollector:
             "command_queue_depth": command_queue.qsize(),
             "event_queue_depth": event_queue.qsize(),
             "frame_lock_p95_ms": frame_lock.get_p95_ms(),
-            "plot_buffer_util": plot_buffer.utilization(),
+            "plot_buffer_util": plot_util,
         }
 
     def format_metrics(self, metrics: dict) -> str:

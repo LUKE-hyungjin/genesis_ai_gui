@@ -116,7 +116,7 @@ class SystemState:
         self.command_queue: Optional[CommandQueue] = None
         self.event_queue: Optional[EventQueue] = None
         self.frame_buffer: Optional[FrameBuffer] = None
-        self.plot_buffer: Optional[PlotBuffer] = None
+        self.plot_buffers: Optional[Dict[str, PlotBuffer]] = None
 
         # Thread management
         self.sim_thread: Optional[threading.Thread] = None
@@ -190,7 +190,10 @@ def initialize_mock_system(
     state.command_queue = CommandQueue(maxsize=1000)
     state.event_queue = EventQueue(maxsize=1000)
     state.frame_buffer = FrameBuffer(width=viewport_width, height=viewport_height, lock=state.frame_lock)
-    state.plot_buffer = PlotBuffer(maxlen=10000)
+    state.plot_buffers = {
+        "kinetic_energy": PlotBuffer(maxlen=10000),
+        "sim_fps": PlotBuffer(maxlen=10000),
+    }
 
     print("[SYSTEM] IPC primitives created")
 
@@ -202,7 +205,7 @@ def initialize_mock_system(
         command_queue=state.command_queue,
         event_queue=state.event_queue,
         frame_buffer=state.frame_buffer,
-        plot_buffer=state.plot_buffer,
+        plot_buffers=state.plot_buffers,
         fps_counter=state.metrics_collector.sim_fps_counter,
         target_hz=sim_hz,
     )
@@ -330,7 +333,10 @@ def initialize_genesis_system(
     state.command_queue = CommandQueue(maxsize=1000)
     state.event_queue = EventQueue(maxsize=1000)
     state.frame_buffer = FrameBuffer(width=viewport_width, height=viewport_height, lock=state.frame_lock)
-    state.plot_buffer = PlotBuffer(maxlen=10000)
+    state.plot_buffers = {
+        "kinetic_energy": PlotBuffer(maxlen=10000),
+        "sim_fps": PlotBuffer(maxlen=10000),
+    }
 
     print("[SYSTEM] IPC primitives created")
 
@@ -468,7 +474,10 @@ def initialize_genesis_system_threaded(
     state.command_queue = CommandQueue(maxsize=1000)
     state.event_queue = EventQueue(maxsize=1000)
     state.frame_buffer = FrameBuffer(width=viewport_width, height=viewport_height, lock=state.frame_lock)
-    state.plot_buffer = PlotBuffer(maxlen=10000)
+    state.plot_buffers = {
+        "kinetic_energy": PlotBuffer(maxlen=10000),
+        "sim_fps": PlotBuffer(maxlen=10000),
+    }
 
     print("[SYSTEM] IPC primitives created")
 
@@ -483,7 +492,7 @@ def initialize_genesis_system_threaded(
         command_queue=state.command_queue,
         event_queue=state.event_queue,
         frame_buffer=state.frame_buffer,
-        plot_buffer=state.plot_buffer,
+        plot_buffers=state.plot_buffers,
         fps_counter=state.metrics_collector.sim_fps_counter,
         target_hz=sim_hz,
     )
@@ -518,6 +527,7 @@ def initialize_genesis_system_threaded(
         genesis_scene=state.genesis_scene,
         on_shutdown=on_shutdown,
         scene_lock=state.frame_lock,
+        plot_buffers=state.plot_buffers,
     )
 
     print("[SYSTEM] Main window created")

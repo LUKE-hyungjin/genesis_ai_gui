@@ -11,7 +11,7 @@ import time
 import queue
 import threading
 import numpy as np
-from typing import Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 from src.core.commands import (
     BaseCommand,
@@ -93,7 +93,7 @@ def mock_sim_loop(
     command_queue: CommandQueue,
     event_queue: EventQueue,
     frame_buffer: FrameBuffer,
-    plot_buffer: PlotBuffer,
+    plot_buffers: Dict[str, PlotBuffer],
     fps_counter,  # FPSCounter instance
     target_hz: float = 1000.0,
     shutdown_event: Optional[threading.Event] = None,
@@ -105,7 +105,7 @@ def mock_sim_loop(
     1. Processes commands from GUI (Play/Pause/Step/Shutdown)
     2. Generates random RGBA float32 [0..1] frames
     3. Writes frames to shared FrameBuffer
-    4. Generates random time-series data for PlotBuffer
+    4. Generates time-series data for PlotBuffers (kinetic_energy, sim_fps)
     5. Emits events back to GUI
 
     Constitutional Compliance:
@@ -118,7 +118,7 @@ def mock_sim_loop(
         command_queue: Commands from GUI thread
         event_queue: Events to GUI thread
         frame_buffer: Shared frame buffer for rendered frames
-        plot_buffer: Circular buffer for time-series data
+        plot_buffers: Dict of PlotBuffer instances keyed by signal name
         target_hz: Target loop frequency (default 1000 Hz)
         shutdown_event: Optional event to signal shutdown
     """
@@ -193,16 +193,17 @@ def mock_sim_loop(
         frame_buffer.write(frame)
 
         # ====================================================================
-        # 4. Plot Buffer Write (random time-series data)
+        # 4. Plot Buffer Write (mock time-series data)
         # ====================================================================
 
-        # Generate random metric value (simulated FPS or other metric)
-        # Use sine wave + noise for realistic-looking data
-        base_value = 60.0 + 10.0 * np.sin(state.sim_time * 0.5)
-        noise = np.random.normal(0, 2.0)
-        metric_value = base_value + noise
+        # Mock kinetic energy: decaying sine wave (simulates falling objects)
+        ke_base = max(0, 50.0 * np.exp(-state.sim_time * 0.3) * abs(np.sin(state.sim_time * 2.0)))
+        ke_noise = np.random.normal(0, 1.0)
+        plot_buffers["kinetic_energy"].append(timestamp=state.sim_time, value=max(0, ke_base + ke_noise))
 
-        plot_buffer.append(timestamp=state.sim_time, value=metric_value)
+        # Mock sim FPS: around target_hz with some jitter
+        sim_fps_value = fps_counter.get_fps() if fps_counter.get_fps() > 0 else target_hz
+        plot_buffers["sim_fps"].append(timestamp=state.sim_time, value=sim_fps_value)
 
         # ====================================================================
         # 5. Event Emission (periodic status events)
@@ -230,7 +231,7 @@ def start_mock_sim_thread(
     command_queue: CommandQueue,
     event_queue: EventQueue,
     frame_buffer: FrameBuffer,
-    plot_buffer: PlotBuffer,
+    plot_buffers: Dict[str, PlotBuffer],
     fps_counter,  # FPSCounter instance
     target_hz: float = 1000.0,
 ) -> Tuple[threading.Thread, threading.Event]:
@@ -241,7 +242,7 @@ def start_mock_sim_thread(
         command_queue: Commands from GUI thread
         event_queue: Events to GUI thread
         frame_buffer: Shared frame buffer
-        plot_buffer: Plot data buffer
+        plot_buffers: Dict of PlotBuffer instances keyed by signal name
         fps_counter: FPSCounter for simulation FPS tracking
         target_hz: Target loop frequency (default 1000 Hz)
 
@@ -252,7 +253,7 @@ def start_mock_sim_thread(
 
     thread = threading.Thread(
         target=mock_sim_loop,
-        args=(command_queue, event_queue, frame_buffer, plot_buffer, fps_counter, target_hz, shutdown_event),
+        args=(command_queue, event_queue, frame_buffer, plot_buffers, fps_counter, target_hz, shutdown_event),
         name="MockSimThread",
         daemon=True,
     )
@@ -562,7 +563,7 @@ def genesis_sim_loop(
     command_queue: CommandQueue,
     event_queue: EventQueue,
     frame_buffer: FrameBuffer,
-    plot_buffer: PlotBuffer,
+    plot_buffers: Dict[str, PlotBuffer],
     fps_counter,  # FPSCounter instance
     shutdown_event: threading.Event,
     target_hz: float = 1000.0,
@@ -576,7 +577,7 @@ def genesis_sim_loop(
     3. Renders camera frames via camera.render()
     4. Converts frames to DPG texture format
     5. Writes frames to shared FrameBuffer
-    6. Emits events back to GUI
+    6. Writes plot data (kinetic_energy, sim_fps) to PlotBuffers
 
     Constitutional Compliance:
     - Runs on background thread (Principle I, II)
@@ -590,7 +591,7 @@ def genesis_sim_loop(
         command_queue: Commands from GUI thread
         event_queue: Events to GUI thread
         frame_buffer: Shared frame buffer for rendered frames
-        plot_buffer: Circular buffer for time-series data
+        plot_buffers: Dict of PlotBuffer instances keyed by signal name
         fps_counter: FPSCounter instance for performance tracking
         shutdown_event: Event to signal shutdown
         target_hz: Target loop frequency (default 1000 Hz, but may run slower)
@@ -651,6 +652,19 @@ def genesis_sim_loop(
             # Advance state
             state.advance(dt)
 
+            # ====================================================================
+            # 3b. Plot Buffer Write (T124: kinetic_energy, sim_fps)
+            # ====================================================================
+
+            # Write kinetic energy
+            from src.core.scene_setup import compute_kinetic_energy
+            ke = compute_kinetic_energy(scene)
+            plot_buffers["kinetic_energy"].append(timestamp=state.sim_time, value=ke)
+
+            # Write sim FPS
+            sim_fps = fps_counter.get_fps()
+            plot_buffers["sim_fps"].append(timestamp=state.sim_time, value=sim_fps)
+
         # ====================================================================
         # 4. Rate Limiting (optional - let sim run at max FPS)
         # ====================================================================
@@ -671,7 +685,7 @@ def start_genesis_sim_thread(
     command_queue: CommandQueue,
     event_queue: EventQueue,
     frame_buffer: FrameBuffer,
-    plot_buffer: PlotBuffer,
+    plot_buffers: Dict[str, PlotBuffer],
     fps_counter,  # FPSCounter instance
     target_hz: float = 1000.0,
 ) -> Tuple[threading.Thread, threading.Event]:
@@ -689,7 +703,7 @@ def start_genesis_sim_thread(
         command_queue: CommandQueue instance
         event_queue: EventQueue instance
         frame_buffer: FrameBuffer instance
-        plot_buffer: PlotBuffer instance
+        plot_buffers: Dict of PlotBuffer instances keyed by signal name
         fps_counter: FPSCounter instance
         target_hz: Target loop frequency (default 1000 Hz)
 
@@ -700,7 +714,7 @@ def start_genesis_sim_thread(
 
     thread = threading.Thread(
         target=genesis_sim_loop,
-        args=(scene, camera, command_queue, event_queue, frame_buffer, plot_buffer, fps_counter, shutdown_event, target_hz),
+        args=(scene, camera, command_queue, event_queue, frame_buffer, plot_buffers, fps_counter, shutdown_event, target_hz),
         name="GenesisSimThread",
         daemon=True,
     )

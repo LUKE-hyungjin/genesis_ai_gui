@@ -80,6 +80,16 @@ def test_ui_main():
     print("✓ src.ui.main imports successfully")
 
 
+def test_ui_plots():
+    """Test that plots module imports (Phase 5)."""
+    from src.ui.plots import (
+        PlotPanelWidget,
+        downsample_plot_data,
+        SIGNAL_REGISTRY,
+    )
+    print("✓ src.ui.plots imports successfully")
+
+
 def test_infra_bootstrap():
     """Test that bootstrap module imports."""
     from src.infra.bootstrap import (
@@ -109,6 +119,7 @@ if __name__ == "__main__":
         test_infra_metrics,
         test_ui_viewport,
         test_ui_main,
+        test_ui_plots,
         test_infra_bootstrap,
         test_main_entry_point,
     ]

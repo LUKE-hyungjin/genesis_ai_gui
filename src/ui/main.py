@@ -30,6 +30,7 @@ from src.infra.metrics import FPSCounter, MetricsCollector
 from src.ui.viewport import create_viewport, update_viewport
 from src.ui.scene_tree import create_scene_tree
 from src.ui.inspector import create_property_inspector
+from src.ui.plots import PlotPanelWidget
 
 
 # ============================================================================
@@ -86,13 +87,14 @@ def create_main_window(
     genesis_scene=None,
     on_shutdown: Optional[Callable] = None,
     scene_lock=None,
+    plot_buffers: Optional[Dict[str, PlotBuffer]] = None,
 ) -> Dict[str, str]:
     """
-    Create main window with viewport, controls, metrics, and Phase 4 widgets.
+    Create main window with viewport, controls, metrics, and Phase 4/5 widgets.
 
     Layout (Phase 4 enabled if event_queue provided):
     - Left: Scene Tree (300px width) - Phase 4 only
-    - Center: 3D Viewport (fills remaining space)
+    - Center: 3D Viewport + Plot Panel below (fills remaining space)
     - Right: Control panel (300px width) with playback controls, metrics, inspector
 
     Layout (Phase 3 fallback if event_queue is None):
@@ -107,6 +109,7 @@ def create_main_window(
         genesis_scene: Genesis scene reference for Phase 4 scene tree
         on_shutdown: Callback to trigger on exit button
         scene_lock: Lock for thread-safe scene state reads in inspector
+        plot_buffers: Dict of PlotBuffer instances for Phase 5 signal plotting
 
     Returns:
         Dictionary with widget tags for later access
@@ -187,6 +190,16 @@ def create_main_window(
                         display_height=viewport_image_height,
                     )
                     tags["viewport"] = viewport_tag
+
+                    # Phase 5: Plot panel below viewport
+                    if plot_buffers is not None:
+                        plot_widget = PlotPanelWidget(
+                            parent_tag="viewport_panel",
+                            plot_buffers=plot_buffers,
+                            width=viewport_panel_width - 10,
+                            height=220,
+                        )
+                        tags["plot_widget"] = plot_widget
             else:
                 # Phase 3: Full-width viewport (no side panels)
                 viewport_tag = create_viewport(
@@ -365,10 +378,10 @@ def run_gui_loop(
     command_queue: CommandQueue,
     event_queue: EventQueue,
     frame_buffer: FrameBuffer,
-    plot_buffer: PlotBuffer,
-    metrics_collector: MetricsCollector,
-    frame_lock,  # TimedLock instance
-    widget_tags: Dict[str, str],
+    plot_buffers: Optional[Dict[str, PlotBuffer]] = None,
+    metrics_collector: MetricsCollector = None,
+    frame_lock=None,  # TimedLock instance
+    widget_tags: Optional[Dict[str, str]] = None,
 ):
     """
     Main GUI render loop (runs on main thread).
@@ -376,8 +389,9 @@ def run_gui_loop(
     This function:
     1. Processes events from simulation thread
     2. Updates viewport texture from frame buffer
-    3. Updates metrics dashboard
-    4. Renders DPG frame
+    3. Updates plot panel (Phase 5)
+    4. Updates metrics dashboard
+    5. Renders DPG frame
 
     Constitutional Compliance:
     - Runs on main thread (Principle I)
@@ -391,7 +405,7 @@ def run_gui_loop(
         command_queue: Command queue (for metrics)
         event_queue: Event queue from sim thread
         frame_buffer: Frame buffer for viewport
-        plot_buffer: Plot buffer for metrics
+        plot_buffers: Dict of PlotBuffer instances (Phase 5)
         metrics_collector: Metrics collector
         frame_lock: TimedLock for frame buffer access timing
         widget_tags: Widget tags from create_main_window
@@ -404,6 +418,9 @@ def run_gui_loop(
     # Get Phase 4 widgets if present
     scene_tree_widget = widget_tags.get("scene_tree_widget")
     inspector_widget = widget_tags.get("inspector_widget")
+
+    # Get Phase 5 plot widget if present
+    plot_widget = widget_tags.get("plot_widget")
 
     print("[GUI] Starting render loop")
 
@@ -435,6 +452,13 @@ def run_gui_loop(
             inspector_widget.refresh()
 
         # ====================================================================
+        # 3b. Update Plot Panel (Phase 5)
+        # ====================================================================
+
+        if plot_widget is not None:
+            plot_widget.update()
+
+        # ====================================================================
         # 4. Update Metrics Dashboard
         # ====================================================================
 
@@ -443,7 +467,7 @@ def run_gui_loop(
             command_queue=command_queue,
             event_queue=event_queue,
             frame_lock=frame_lock,
-            plot_buffer=plot_buffer,
+            plot_buffers=plot_buffers,
         )
 
         # Update labels
@@ -474,10 +498,10 @@ def run_genesis_gui_loop(
     command_queue: CommandQueue,
     event_queue: EventQueue,
     frame_buffer: FrameBuffer,
-    plot_buffer: PlotBuffer,
-    metrics_collector: MetricsCollector,
-    frame_lock,  # TimedLock instance
-    widget_tags: Dict[str, str],
+    plot_buffers: Optional[Dict[str, PlotBuffer]] = None,
+    metrics_collector: MetricsCollector = None,
+    frame_lock=None,  # TimedLock instance
+    widget_tags: Optional[Dict[str, str]] = None,
 ):
     """
     Genesis GUI render loop for Phase 2 (single-threaded mode).
@@ -503,7 +527,7 @@ def run_genesis_gui_loop(
         command_queue: Command queue (for future playback controls)
         event_queue: Event queue (for future events)
         frame_buffer: Frame buffer for viewport
-        plot_buffer: Plot buffer for metrics
+        plot_buffers: Dict of PlotBuffer instances (Phase 5)
         metrics_collector: Metrics collector
         frame_lock: TimedLock for frame buffer access timing
         widget_tags: Widget tags from create_main_window
@@ -550,7 +574,7 @@ def run_genesis_gui_loop(
             command_queue=command_queue,
             event_queue=event_queue,
             frame_lock=frame_lock,
-            plot_buffer=plot_buffer,
+            plot_buffers=plot_buffers,
         )
 
         # Update labels
