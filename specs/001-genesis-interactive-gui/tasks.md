@@ -298,24 +298,24 @@
 
 ### Plot Widget Infrastructure
 
-- [ ] T120 [P] [US4] Create plot panel layout in src/ui/plots.py (DPG plot widget)
-- [ ] T121 [P] [US4] Implement create_plot function in src/ui/plots.py (add_plot with x/y series)
-- [ ] T122 [P] [US4] Add signal selection dropdown in src/ui/plots.py (kinetic energy, potential energy, custom)
-- [ ] T123 [P] [US4] Create plot_buffers dictionary in src/ui/main.py (one PlotBuffer per signal)
+- [X] T120 [P] [US4] Create plot panel layout in src/ui/plots.py (DPG plot widget)
+- [X] T121 [P] [US4] Implement create_plot function in src/ui/plots.py (add_plot with x/y series)
+- [X] T122 [P] [US4] Add signal selection dropdown in src/ui/plots.py (kinetic energy, potential energy, custom)
+- [X] T123 [P] [US4] Create plot_buffers dictionary in src/ui/main.py (one PlotBuffer per signal)
 
 ### Plot Data Collection
 
-- [ ] T124 [US4] Emit PlotDataEvent from sim loop in src/core/sim_loop.py (kinetic energy every timestep)
-- [ ] T125 [P] [US4] Add scene.get_metric helper in src/core/scene_setup.py (calculate kinetic/potential energy)
-- [ ] T126 [US4] Process PlotDataEvent in GUI loop in src/ui/main.py (append to plot_buffer)
-- [ ] T127 [P] [US4] Verify plot_buffer circular behavior (oldest dropped when full)
+- [X] T124 [US4] Emit PlotDataEvent from sim loop in src/core/sim_loop.py (kinetic energy every timestep)
+- [X] T125 [P] [US4] Add scene.get_metric helper in src/core/scene_setup.py (calculate kinetic/potential energy)
+- [X] T126 [US4] Process PlotDataEvent in GUI loop in src/ui/main.py (append to plot_buffer)
+- [X] T127 [P] [US4] Verify plot_buffer circular behavior (oldest dropped when full)
 
 ### Downsampling Integration
 
-- [ ] T128 [P] [US4] Implement downsample_plot_data function in src/ui/plots.py using tsdownsample.lttb
-- [ ] T129 [US4] Add downsample call in update_plot function (10k → 1k points before rendering)
-- [ ] T130 [P] [US4] Add downsampling algorithm selection in src/ui/plots.py (LTTB vs MinMax)
-- [ ] T131 [US4] Optimize plot update to run only at 60 FPS (not every sim step)
+- [X] T128 [P] [US4] Implement downsample_plot_data function in src/ui/plots.py using tsdownsample.lttb
+- [X] T129 [US4] Add downsample call in update_plot function (10k → 1k points before rendering)
+- [X] T130 [P] [US4] Add downsampling algorithm selection in src/ui/plots.py (LTTB vs MinMax)
+- [X] T131 [US4] Optimize plot update to run only at 60 FPS (not every sim step)
 
 ### Validation
 
@@ -348,12 +348,12 @@
 
 **Independent Test**: Click visible object in viewport, verify selection in scene tree and inspector
 
-- [ ] T136 [P] [US5] Implement viewport click handler in src/ui/viewport.py (capture mouse coords)
-- [ ] T137 [P] [US5] Convert screen coords to normalized [0..1] in src/ui/viewport.py
-- [ ] T138 [US5] Emit RayCastCommand from viewport click in src/ui/viewport.py
-- [ ] T139 [US5] Implement RayCastCommand handler in src/core/sim_loop.py (camera.screen_to_ray)
-- [ ] T140 [US5] Perform scene raycast in src/core/sim_loop.py (find nearest intersected entity)
-- [ ] T141 [US5] Emit EntitySelectedEvent from raycast hit in src/core/sim_loop.py
+- [X] T136 [P] [US5] Implement viewport click handler in src/ui/viewport.py (capture mouse coords)
+- [X] T137 [P] [US5] Convert screen coords to normalized [0..1] in src/ui/viewport.py
+- [X] T138 [US5] Emit RayCastCommand from viewport click in src/ui/viewport.py
+- [X] T139 [US5] Implement RayCastCommand handler in src/core/sim_loop.py (camera.screen_to_ray)
+- [X] T140 [US5] Perform scene raycast in src/core/sim_loop.py (find nearest intersected entity)
+- [X] T141 [US5] Emit EntitySelectedEvent from raycast hit in src/core/sim_loop.py
 - [ ] T142 [US5] Test User Story 5 acceptance scenarios from spec.md:
   - [ ] T142a Click entity → selected in scene tree + inspector
   - [ ] T142b Click empty space → selection clears
@@ -365,13 +365,13 @@
 
 **Independent Test**: Select entity, see gizmo, drag axis, entity moves, single Undo entry on release
 
-- [ ] T143 [P] [US6] Implement TransformGizmo class in src/ui/gizmo.py (DPG drawlist-based)
-- [ ] T144 [P] [US6] Implement project_to_screen helper in src/ui/gizmo.py (3D entity position → 2D screen)
-- [ ] T145 [US6] Render gizmo axes in src/ui/gizmo.py (X=red, Y=green, Z=blue lines using dpg.draw_line)
-- [ ] T146 [US6] Add gizmo mouse drag detection in src/ui/gizmo.py (check if dragging on axis)
-- [ ] T147 [US6] Emit PreviewPropertyCommand during gizmo drag in src/ui/gizmo.py (update position)
-- [ ] T148 [US6] Emit UpdatePropertyCommand on gizmo release in src/ui/gizmo.py (commit to Undo)
-- [ ] T149 [US6] Integrate gizmo rendering into viewport update loop in src/ui/viewport.py
+- [X] T143 [P] [US6] Implement TransformGizmo class in src/ui/gizmo.py (DPG drawlist-based)
+- [X] T144 [P] [US6] Implement project_to_screen helper in src/ui/gizmo.py (3D entity position → 2D screen)
+- [X] T145 [US6] Render gizmo axes in src/ui/gizmo.py (X=red, Y=green, Z=blue lines using dpg.draw_line)
+- [X] T146 [US6] Add gizmo mouse drag detection in src/ui/gizmo.py (check if dragging on axis)
+- [X] T147 [US6] Emit PreviewPropertyCommand during gizmo drag in src/ui/gizmo.py (update position)
+- [X] T148 [US6] Emit UpdatePropertyCommand on gizmo release in src/ui/gizmo.py (commit to Undo)
+- [X] T149 [US6] Integrate gizmo rendering into viewport update loop in src/ui/viewport.py
 - [ ] T150 [US6] Test User Story 6 acceptance scenarios from spec.md:
   - [ ] T150a Entity selected → gizmo appears
   - [ ] T150b Drag X/Y/Z axis → entity moves along that axis only
@@ -407,6 +407,122 @@
 
 ---
 
+## Phase 8: Omniverse-Style Workflow Backlog (P0/P1/P2)
+
+**Purpose**: Upgrade Genesis GUI from engineering prototype to production-grade creator workflow
+
+**Objective**: Deliver an integrated authoring loop (Scene Editing → Simulation → Debugging → Recording)
+
+**DoD Gate**: User can build/edit a scene, inspect/debug behavior, and export reproducible results in one session
+
+### Sprint A (P0, Week 1-2): Core Workflow Foundation
+
+#### A1. Scene Authoring Core
+
+- [ ] T166 [P] Add scene authoring command dataclasses in src/core/commands.py (CreateEntity, DeleteEntity, DuplicateEntity, RenameEntity, ReparentEntity)
+- [ ] T167 [P] Add scene authoring events in src/core/commands.py (SceneTreeUpdatedEvent, EntityRenamedEvent)
+- [ ] T168 Implement scene mutation handlers in src/core/sim_loop.py for T166 commands
+- [ ] T169 [P] Add entity factory helpers in src/core/scene_setup.py (primitive creation presets: Plane, Box, Sphere, Capsule)
+- [ ] T170 [P] Add scene tree action toolbar in src/ui/scene_tree.py (create/duplicate/delete/rename buttons)
+- [ ] T171 Implement create-primitive dialog in src/ui/scene_tree.py (type + initial transform)
+- [ ] T172 Implement inline rename flow in src/ui/scene_tree.py with validation
+- [ ] T173 Implement parent reassignment flow in src/ui/scene_tree.py (safe reparent, no cycle)
+- [ ] T174 Wire scene authoring UI actions to CommandQueue in src/ui/main.py
+- [ ] T175 Add keyboard shortcuts for duplicate/delete in src/ui/main.py
+- [ ] T176 Integrate scene authoring operations with UndoStack in src/core/undo_stack.py and src/core/sim_loop.py
+- [ ] T177 Validate Scene Authoring Core acceptance: create/duplicate/delete/rename/reparent + undo/redo
+
+#### A2. Viewport UX Foundation
+
+- [ ] T178 [P] Add camera control commands in src/core/commands.py (SetCameraPresetCommand, FocusEntityCommand, OrbitCameraCommand)
+- [ ] T179 Implement camera command handlers in src/core/sim_loop.py (Top/Front/Right/ISO presets + focus selected)
+- [ ] T180 [P] Add viewport camera toolbar in src/ui/viewport.py (preset buttons, focus action)
+- [ ] T181 Implement grid overlay toggle in src/ui/viewport.py
+- [ ] T182 Implement transform snap settings in src/ui/gizmo.py (translate snap step)
+- [ ] T183 Apply snap quantization during gizmo drag in src/ui/gizmo.py
+- [ ] T184 Add camera and viewport shortcuts in src/ui/main.py (F=Focus, 1/2/3/4 presets, G=Grid)
+- [ ] T185 Validate Viewport UX acceptance: camera presets, focus, grid toggle, snap move
+
+#### A3. Inspector Productivity Improvements
+
+- [ ] T186 [P] Extend selection model in src/ui/scene_tree.py for multi-select support
+- [ ] T187 Update inspector state model in src/ui/inspector.py to support selected entity list
+- [ ] T188 Add batch property update command in src/core/commands.py (BatchUpdatePropertyCommand)
+- [ ] T189 Implement batch update handler in src/core/sim_loop.py with per-entity validation
+- [ ] T190 Add Reset/Revert controls in src/ui/inspector.py (per-property + all properties)
+- [ ] T191 Add dirty-state highlighting for modified fields in src/ui/inspector.py
+- [ ] T192 Validate Inspector acceptance: multi-select batch edit + reset/revert + undo/redo consistency
+
+#### A4. Session Save/Load
+
+- [ ] T193 [P] Create session schema dataclasses in src/infra/config.py (scene/camera/ui state)
+- [ ] T194 [P] Implement session serializer in src/infra/session_io.py (to_json/from_json)
+- [ ] T195 Add SaveSessionCommand/LoadSessionCommand in src/core/commands.py
+- [ ] T196 Implement session save/load handlers in src/ui/main.py
+- [ ] T197 Add File menu in src/ui/main.py (New, Open, Save, Save As, Recent)
+- [ ] T198 Persist UI layout state in src/ui/main.py (panel sizes, active signal, overlays)
+- [ ] T199 Implement startup load-last-session option in src/__main__.py and src/infra/bootstrap.py
+- [ ] T200 Add robust error handling for corrupt/invalid session files in src/infra/session_io.py
+- [ ] T201 Validate Session acceptance: close/reopen reproduces scene + camera + UI layout
+
+### Sprint B (P1, Week 3-4): Analysis and Output Workflow
+
+#### B1. Timeline / Sequencer Lite
+
+- [ ] T202 [P] Create timeline panel widget in src/ui/timeline.py (playhead, tracks, keyframe lane)
+- [ ] T203 Add keyframe commands/events in src/core/commands.py (AddKeyframeCommand, DeleteKeyframeCommand, SetPlayheadCommand)
+- [ ] T204 [P] Create animation data model in src/core/animation.py (track/keyframe/interpolation)
+- [ ] T205 Integrate keyframe model into simulation state in src/core/sim_loop.py
+- [ ] T206 Implement playhead scrub UI in src/ui/timeline.py and src/ui/main.py
+- [ ] T207 Implement linear interpolation for transform.position in src/core/animation.py
+- [ ] T208 Sync playhead and selected track state via EventQueue in src/ui/main.py
+- [ ] T209 Integrate timeline edits with UndoStack in src/core/undo_stack.py
+- [ ] T210 Validate Timeline acceptance: key add/delete/scrub/playback for position track
+
+#### B2. Physics Debug Overlay
+
+- [ ] T211 [P] Add overlay toggle commands/events in src/core/commands.py (ToggleDebugOverlayCommand)
+- [ ] T212 Implement debug primitive extraction in src/core/sim_loop.py (contacts, velocity vectors, bounds)
+- [ ] T213 Render debug overlay on viewport drawlist in src/ui/viewport.py
+- [ ] T214 Add overlay legend + filter UI in src/ui/main.py (contacts/velocities/bounds on/off)
+- [ ] T215 Add overlay performance guard in src/infra/metrics.py (<1ms render budget target)
+- [ ] T216 Validate Debug Overlay acceptance: toggles work and no visible GUI stutter
+
+#### B3. Recorder and Export
+
+- [ ] T217 [P] Create recording pipeline module in src/infra/recorder.py (frame capture state machine)
+- [ ] T218 Add recording commands/events in src/core/commands.py (StartRecordingCommand, StopRecordingCommand, ExportMetricsCommand)
+- [ ] T219 Implement PNG sequence export from FrameBuffer in src/infra/recorder.py
+- [ ] T220 Implement CSV metrics export in src/infra/metrics.py
+- [ ] T221 Add recorder control panel in src/ui/main.py (start/stop/path/fps)
+- [ ] T222 Add export settings dialog in src/ui/main.py (resolution, frame range, output format)
+- [ ] T223 Validate Recorder acceptance: 60s capture + CSV export + deterministic file outputs
+
+#### B4. Profiler Dashboard
+
+- [ ] T224 [P] Add stage timing probes in src/core/sim_loop.py (command, step, render, plot)
+- [ ] T225 Extend MetricsCollector in src/infra/metrics.py with rolling stage traces
+- [ ] T226 Add profiler chart panel in src/ui/plots.py (multi-line timings, thresholds)
+- [ ] T227 Add queue/lock anomaly warnings in src/ui/main.py (toast/banner on threshold breach)
+- [ ] T228 Add profiler snapshot export in src/infra/metrics.py (JSON report)
+- [ ] T229 Validate Profiler acceptance: bottleneck identification from 5-minute run report
+
+### Sprint C (P2, Post-4-week Backlog): Extensibility
+
+- [ ] T230 [P] Add asset browser panel skeleton in src/ui/asset_browser.py
+- [ ] T231 [P] Implement asset index/cache service in src/infra/assets_index.py
+- [ ] T232 Add asset import command flow in src/core/commands.py and src/core/sim_loop.py
+- [ ] T233 [P] Add script console panel in src/ui/console.py (command history + output log)
+- [ ] T234 Add safe script execution wrapper in src/infra/scripting.py (allowlist + timeout)
+- [ ] T235 [P] Add extension registry in src/infra/plugins.py (discover/load/unload)
+- [ ] T236 Implement plugin lifecycle hooks in src/ui/main.py and src/infra/bootstrap.py
+- [ ] T237 Add extension API documentation in docs/extensions.md
+- [ ] T238 Validate P2 acceptance: load plugin panel + run script + import asset
+
+**Checkpoint**: Phase 8 complete - Omniverse-style creator workflow baseline delivered
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -418,6 +534,10 @@
 - **Phase 5 (US4)**: Depends on Phase 3 completion (can run in parallel with Phase 4)
 - **Phase 6 (US5/US6)**: Depends on Phase 4 completion (needs inspector/Undo)
 - **Phase 7 (Polish)**: Depends on all desired user story phases being complete
+- **Phase 8 (Omniverse-Style Workflow)**: Depends on Phase 7 completion for full rollout
+  - Sprint A (P0) can begin after Phase 4 if team prioritizes workflow features early
+  - Sprint B (P1) depends on Sprint A foundation (scene authoring + session save/load)
+  - Sprint C (P2) depends on Sprint B core architecture stabilization
 
 ### User Story Dependencies
 
@@ -451,6 +571,14 @@
 
 **Phase 6**:
 - US5 (Raycasting) and US6 (Gizmo) can run in parallel after US3 complete
+
+**Phase 7**:
+- Cross-cutting hardening tasks can run in parallel, then converge at validation gate
+
+**Phase 8**:
+- Sprint A (P0): Scene Authoring + Viewport UX + Inspector + Session (sequential integration)
+- Sprint B (P1): Timeline + Overlay + Recorder + Profiler (feature streams can run in parallel)
+- Sprint C (P2): Asset/Script/Plugin tracks can run in parallel after stable extension points
 
 ### Parallel Opportunities
 
@@ -505,6 +633,21 @@ Task T143-T150: US6 Gizmo (parallel branch 2)
 Task T155-T165: All can run in parallel
 ```
 
+**Phase 8 Parallelization**:
+```bash
+# Sprint A (P0): four workstreams
+Task T166-T177: Scene Authoring Core
+Task T178-T185: Viewport UX Foundation
+Task T186-T192: Inspector Productivity
+Task T193-T201: Session Save/Load
+
+# Sprint B (P1): four workstreams
+Task T202-T210: Timeline / Sequencer Lite
+Task T211-T216: Physics Debug Overlay
+Task T217-T223: Recorder and Export
+Task T224-T229: Profiler Dashboard
+```
+
 ---
 
 ## Parallel Example: Phase 1
@@ -553,8 +696,10 @@ This delivers a fully functional interactive GUI with playback, viewport, and pr
 5. **Phase 5** (2 weeks): US4 → Adds live plotting (quantitative analysis)
 6. **Phase 6** (2 weeks): US5/US6 → Adds raycasting + gizmo (UX polish)
 7. **Phase 7** (1 week): Polish → Final improvements
+8. **Phase 8 Sprint A (2 weeks)**: P0 workflow foundation (authoring + viewport UX + inspector + session)
+9. **Phase 8 Sprint B (2 weeks)**: P1 analysis/output workflow (timeline + debug overlay + recorder + profiler)
 
-**Full Feature Set**: 12 weeks total
+**Full Feature Set (through Phase 8 Sprint B)**: 16 weeks total
 
 ### Parallel Team Strategy
 
@@ -569,12 +714,19 @@ With 3 developers after Phase 4 complete:
 - **Developer B**: Phase 6 US6 (Gizmo)
 - **Developer C**: Phase 7 (Polish)
 
+With 4 developers for Phase 8 Sprint B:
+
+- **Developer A**: Timeline / Sequencer (T202-T210)
+- **Developer B**: Debug Overlay (T211-T216)
+- **Developer C**: Recorder / Export (T217-T223)
+- **Developer D**: Profiler Dashboard (T224-T229)
+
 ---
 
 ## Summary
 
-- **Total Tasks**: 165 tasks
-- **Phases**: 7 phases (Phase 1-4 = MVP, Phase 5-7 = optional enhancements)
+- **Total Tasks**: 238 tasks
+- **Phases**: 8 phases (Phase 1-4 = MVP, Phase 5-7 = advanced features, Phase 8 = creator workflow)
 - **User Stories**:
   - US1 (Playback Control): Phase 3, 8 tasks
   - US2 (Real-time Viewport): Phase 3, 6 tasks
@@ -582,10 +734,14 @@ With 3 developers after Phase 4 complete:
   - US4 (Live Plotting): Phase 5, 16 tasks
   - US5 (Raycasting): Phase 6, 7 tasks
   - US6 (Gizmo): Phase 6, 8 tasks
-- **Parallel Opportunities**: 60+ tasks marked [P] for parallel execution
+- **Phase 8 Backlog Tracks**:
+  - P0 (Sprint A): T166-T201
+  - P1 (Sprint B): T202-T229
+  - P2 (Sprint C): T230-T238
+- **Parallel Opportunities**: 80+ tasks marked [P] for parallel execution
 - **Independent Testing**: Each phase has validation checklist in quickstart.md
 - **MVP Scope**: Phases 1-4 (US1, US2, US3) = 7 weeks
-- **Full Scope**: Phases 1-7 (all 6 user stories) = 12 weeks
+- **Full Scope**: Phases 1-8 Sprint B = 16 weeks (Sprint C is post-release extensibility)
 
 ---
 
@@ -593,8 +749,9 @@ With 3 developers after Phase 4 complete:
 
 - [P] tasks = different files, no dependencies, can run in parallel
 - [Story] label (US1-US6) maps task to specific user story for traceability
+- Phase 8 tasks use P0/P1/P2 track labels for release planning
 - Constitutional compliance enforced through phase gates (see plan.md)
 - Tests are manual smoke tests per phase (quickstart.md checklists)
 - Each phase checkpoint allows independent validation before proceeding
-- Stop at Phase 4 for MVP or continue to Phase 7 for full feature set
+- Stop at Phase 4 for MVP, continue to Phase 7 for advanced baseline, then Phase 8 for creator workflow
 - Commit after each task or logical group for incremental progress

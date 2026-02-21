@@ -124,6 +124,7 @@ class SystemState:
 
         # Metrics
         self.frame_lock: Optional[TimedLock] = None
+        self.scene_lock: Optional[threading.Lock] = None
         self.metrics_collector: Optional[MetricsCollector] = None
 
         # GUI
@@ -179,6 +180,7 @@ def initialize_mock_system(
     # ========================================================================
 
     state.frame_lock = TimedLock(threading.Lock(), window_size=1000)
+    state.scene_lock = threading.Lock()
     state.metrics_collector = MetricsCollector()
 
     print("[SYSTEM] Metrics infrastructure initialized")
@@ -235,6 +237,7 @@ def initialize_mock_system(
         frame_buffer=state.frame_buffer,
         metrics_collector=state.metrics_collector,
         on_shutdown=on_shutdown,
+        scene_lock=state.scene_lock,
     )
 
     print("[SYSTEM] Main window created")
@@ -322,6 +325,7 @@ def initialize_genesis_system(
     # ========================================================================
 
     state.frame_lock = TimedLock(threading.Lock(), window_size=1000)
+    state.scene_lock = threading.Lock()
     state.metrics_collector = MetricsCollector()
 
     print("[SYSTEM] Metrics infrastructure initialized")
@@ -365,6 +369,7 @@ def initialize_genesis_system(
         frame_buffer=state.frame_buffer,
         metrics_collector=state.metrics_collector,
         on_shutdown=on_shutdown,
+        scene_lock=state.scene_lock,
     )
 
     print("[SYSTEM] Main window created")
@@ -463,6 +468,7 @@ def initialize_genesis_system_threaded(
     # ========================================================================
 
     state.frame_lock = TimedLock(threading.Lock(), window_size=1000)
+    state.scene_lock = threading.Lock()
     state.metrics_collector = MetricsCollector()
 
     print("[SYSTEM] Metrics infrastructure initialized")
@@ -494,6 +500,7 @@ def initialize_genesis_system_threaded(
         frame_buffer=state.frame_buffer,
         plot_buffers=state.plot_buffers,
         fps_counter=state.metrics_collector.sim_fps_counter,
+        scene_lock=state.scene_lock,
         target_hz=sim_hz,
     )
 
@@ -526,12 +533,16 @@ def initialize_genesis_system_threaded(
         event_queue=state.event_queue,
         genesis_scene=state.genesis_scene,
         on_shutdown=on_shutdown,
-        scene_lock=state.frame_lock,
+        scene_lock=state.scene_lock,
         plot_buffers=state.plot_buffers,
     )
 
+    # Phase 6: Store camera and scene references for gizmo/picking
+    state.widget_tags["_camera_ref"] = state.genesis_camera
+    state.widget_tags["_genesis_scene_ref"] = state.genesis_scene
+
     print("[SYSTEM] Main window created")
-    print("[SYSTEM] Genesis system initialization complete (Phase 3)")
+    print("[SYSTEM] Genesis system initialization complete (Phase 6)")
     print("[SYSTEM] Background thread running - GUI and Sim loops now independent")
     print("=" * 70)
 

@@ -27,10 +27,11 @@ from src.core.commands import (
 )
 from src.core.ipc import CommandQueue, EventQueue, FrameBuffer, PlotBuffer
 from src.infra.metrics import FPSCounter, MetricsCollector
-from src.ui.viewport import create_viewport, update_viewport
+from src.ui.viewport import create_viewport, update_viewport, setup_viewport_click_handler
 from src.ui.scene_tree import create_scene_tree
 from src.ui.inspector import create_property_inspector
 from src.ui.plots import PlotPanelWidget
+from src.ui.gizmo import TransformGizmo
 
 
 # ============================================================================
@@ -190,6 +191,21 @@ def create_main_window(
                         display_height=viewport_image_height,
                     )
                     tags["viewport"] = viewport_tag
+
+                    # Phase 6: Gizmo overlay on viewport.
+                    # The viewport drawlist (created by create_viewport) contains
+                    # the background image as its first layer. The gizmo draws on
+                    # the same drawlist so axes appear on top of the rendered frame.
+                    if phase4_enabled:
+                        viewport_drawlist_tag = f"{viewport_tag}_drawlist"
+                        gizmo_widget = TransformGizmo(
+                            drawlist_tag=viewport_drawlist_tag,
+                            command_queue=command_queue,
+                            display_width=viewport_image_width,
+                            display_height=viewport_image_height,
+                            scene_lock=scene_lock,
+                        )
+                        tags["gizmo_widget"] = gizmo_widget
 
                     # Phase 5: Plot panel below viewport
                     if plot_buffers is not None:
@@ -352,6 +368,7 @@ def create_main_window(
     if phase4_enabled:
         _scene_tree = tags.get("scene_tree_widget")
         _inspector = tags.get("inspector_widget")
+        _gizmo = tags.get("gizmo_widget")
 
         if _scene_tree is not None and _inspector is not None:
             def _on_entity_selected(entity_id):
@@ -360,12 +377,30 @@ def create_main_window(
                 else:
                     _inspector.clear()
 
+                # Phase 6: Update gizmo on scene tree selection
+                if _gizmo is not None:
+                    _gizmo.set_entity(entity_id, genesis_scene, tags.get("_camera_ref"))
+
             _scene_tree.set_on_select(_on_entity_selected)
+
+        # Phase 6: Setup viewport click handler for raycasting.
+        # Bounds checking uses the viewport drawlist tag (replacing the old image tag)
+        # since create_viewport now uses a drawlist instead of add_image.
+        viewport_drawlist_tag = f"{tags.get('viewport', 'main_viewport')}_drawlist"
+        setup_viewport_click_handler(
+            viewport_item_tag=viewport_drawlist_tag,
+            command_queue=command_queue,
+            display_width=680,
+            display_height=382,
+        )
+
+    # Store camera reference for gizmo use
+    tags["_camera_ref"] = None  # Will be set from bootstrap
 
     dpg.set_primary_window("main_window", True)
     tags["main_window"] = "main_window"
 
-    phase_str = "Phase 4" if phase4_enabled else "Phase 3"
+    phase_str = "Phase 6" if phase4_enabled else "Phase 3"
     print(f"[GUI] Main window created ({phase_str})")
     return tags
 
@@ -422,6 +457,11 @@ def run_gui_loop(
     # Get Phase 5 plot widget if present
     plot_widget = widget_tags.get("plot_widget")
 
+    # Get Phase 6 gizmo widget if present
+    gizmo_widget = widget_tags.get("gizmo_widget")
+    camera_ref = widget_tags.get("_camera_ref")
+    genesis_scene_ref = widget_tags.get("_genesis_scene_ref")
+
     print("[GUI] Starting render loop")
 
     while dpg.is_dearpygui_running():
@@ -432,8 +472,13 @@ def run_gui_loop(
         # ====================================================================
 
         # Process all pending events (non-blocking)
-        # Phase 4: Use process_event_queue helper (T111)
-        process_event_queue(event_queue, scene_tree_widget, inspector_widget)
+        # Phase 4+6: Use process_event_queue helper with gizmo support
+        process_event_queue(
+            event_queue, scene_tree_widget, inspector_widget,
+            gizmo_widget=gizmo_widget,
+            genesis_scene=genesis_scene_ref,
+            camera_ref=camera_ref,
+        )
 
         # ====================================================================
         # 2. Update Viewport from Frame Buffer
@@ -452,7 +497,14 @@ def run_gui_loop(
             inspector_widget.refresh()
 
         # ====================================================================
-        # 3b. Update Plot Panel (Phase 5)
+        # 3b. Update Gizmo (Phase 6)
+        # ====================================================================
+
+        if gizmo_widget is not None:
+            gizmo_widget.update()
+
+        # ====================================================================
+        # 3c. Update Plot Panel (Phase 5)
         # ====================================================================
 
         if plot_widget is not None:
@@ -605,20 +657,30 @@ def run_genesis_gui_loop(
 # Phase 4: Event Processing & Keyboard Shortcuts
 # ============================================================================
 
-def process_event_queue(event_queue: EventQueue, scene_tree_widget=None, inspector_widget=None):
+def process_event_queue(
+    event_queue: EventQueue,
+    scene_tree_widget=None,
+    inspector_widget=None,
+    gizmo_widget=None,
+    genesis_scene=None,
+    camera_ref=None,
+):
     """
     Process events from simulation thread.
 
-    Constitutional Compliance: T111-T114
+    Constitutional Compliance: T111-T114, T141 (Phase 6)
     - WidgetUpdateEvent: Update DPG widget values
     - LogEvent: Append to console log
     - PropertyChangedEvent: Update inspector display
-    - EntitySelectedEvent: Handled by scene tree widget
+    - EntitySelectedEvent: Update scene tree, inspector, and gizmo
 
     Args:
         event_queue: Event queue from simulation thread
         scene_tree_widget: Scene tree widget (optional, Phase 4)
         inspector_widget: Property inspector widget (optional, Phase 4)
+        gizmo_widget: Transform gizmo widget (optional, Phase 6)
+        genesis_scene: Genesis scene reference (optional, Phase 6)
+        camera_ref: Genesis camera reference (optional, Phase 6)
     """
     events_processed = 0
 
@@ -641,7 +703,6 @@ def process_event_queue(event_queue: EventQueue, scene_tree_widget=None, inspect
                     LogLevel.ERROR: (255, 100, 100),
                 }.get(event.level, (200, 200, 200))
 
-                # TODO: Add console window widget in Phase 4+
                 print(f"[{event.level.value}] {event.message}")
 
             # PropertyChangedEvent (T114)
@@ -652,13 +713,25 @@ def process_event_queue(event_queue: EventQueue, scene_tree_widget=None, inspect
                         event.new_value
                     )
 
-            # EntitySelectedEvent (handled by scene tree, but also update inspector)
+            # EntitySelectedEvent (Phase 4 + Phase 6 raycast)
             elif isinstance(event, EntitySelectedEvent):
+                # Update inspector
                 if inspector_widget is not None:
                     if event.entity_id is not None:
                         inspector_widget.populate_inspector(event.entity_id)
                     else:
                         inspector_widget.clear()
+
+                # Phase 6: Update scene tree selection highlight
+                if scene_tree_widget is not None:
+                    if hasattr(scene_tree_widget, 'select_entity'):
+                        scene_tree_widget.select_entity(event.entity_id)
+
+                # Phase 6: Update gizmo
+                if gizmo_widget is not None:
+                    gizmo_widget.set_entity(
+                        event.entity_id, genesis_scene, camera_ref
+                    )
 
         except queue.Empty:
             break

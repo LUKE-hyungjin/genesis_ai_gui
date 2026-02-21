@@ -174,14 +174,21 @@ class SceneTreeWidget:
         except Exception as e:
             print(f"[SCENE_TREE] rigid_solver fallback failed: {e}")
 
-        # Strategy 3: Hardcoded fallback based on scene_setup.py
-        # We know create_test_scene adds: Plane (0), Box (1), Sphere (2)
-        print("[SCENE_TREE] Using hardcoded entity list (fallback)")
-        result = [
-            (0, "Ground Plane"),
-            (1, "Box"),
-            (2, "Sphere"),
-        ]
+        # Strategy 3: Generic fallback with index-based naming (no hardcoded scene assumptions)
+        try:
+            entities = getattr(scene, 'entities', None)
+            if entities is not None:
+                for i, entity in enumerate(entities):
+                    name = getattr(entity, 'name', f"Entity {i}")
+                    eid = getattr(entity, 'id', i)
+                    result.append((eid, name))
+                if result:
+                    print(f"[SCENE_TREE] Found {len(result)} entities via generic fallback")
+                    return result
+        except Exception as e:
+            print(f"[SCENE_TREE] generic fallback failed: {e}")
+
+        print("[SCENE_TREE] No entities discovered")
         return result
 
     def _add_entity_node(self, entity_id: int, name: str):
@@ -260,6 +267,33 @@ class SceneTreeWidget:
     def get_selected_entity_id(self) -> Optional[int]:
         """Get currently selected entity ID."""
         return self.selected_entity_id
+
+    def select_entity(self, entity_id: Optional[int]):
+        """
+        Programmatically select an entity (e.g., from raycast).
+
+        Updates DPG selectable highlight without triggering on_select callback
+        (to avoid recursive loops when raycast result syncs back to tree).
+
+        Args:
+            entity_id: Entity ID to select, or None to clear.
+
+        Phase 6: T142 (raycast → scene tree sync)
+        """
+        # Deselect previous
+        if self.selected_entity_id is not None and self.selected_entity_id != entity_id:
+            prev_tag = self.entity_nodes.get(self.selected_entity_id)
+            if prev_tag and dpg.does_item_exist(prev_tag):
+                dpg.set_value(prev_tag, False)
+
+        if entity_id is not None and entity_id in self.entity_nodes:
+            # Select new
+            node_tag = self.entity_nodes[entity_id]
+            if dpg.does_item_exist(node_tag):
+                dpg.set_value(node_tag, True)
+            self.selected_entity_id = entity_id
+        else:
+            self.selected_entity_id = None
 
     def clear_selection(self):
         """Clear entity selection."""

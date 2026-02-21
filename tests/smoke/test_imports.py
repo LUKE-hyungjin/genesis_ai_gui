@@ -90,6 +90,27 @@ def test_ui_plots():
     print("✓ src.ui.plots imports successfully")
 
 
+def test_core_picking():
+    """Test that picking module imports (Phase 6)."""
+    from src.core.picking import (
+        build_view_matrix,
+        build_projection_matrix,
+        project_to_screen,
+        pick_nearest_entity,
+    )
+    print("✓ src.core.picking imports successfully")
+
+
+def test_ui_gizmo():
+    """Test that gizmo module imports (Phase 6)."""
+    from src.ui.gizmo import (
+        TransformGizmo,
+        AXIS_COLORS,
+        AXIS_DIRECTIONS,
+    )
+    print("✓ src.ui.gizmo imports successfully")
+
+
 def test_infra_bootstrap():
     """Test that bootstrap module imports."""
     from src.infra.bootstrap import (
@@ -116,10 +137,12 @@ if __name__ == "__main__":
         test_core_commands,
         test_core_ipc,
         test_core_sim_loop,
+        test_core_picking,
         test_infra_metrics,
         test_ui_viewport,
         test_ui_main,
         test_ui_plots,
+        test_ui_gizmo,
         test_infra_bootstrap,
         test_main_entry_point,
     ]

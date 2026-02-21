@@ -10,6 +10,7 @@ Constitutional Compliance: Principle I (Init-Main, Run-Threaded)
 import time
 import queue
 import threading
+from contextlib import nullcontext
 import numpy as np
 from typing import Dict, Optional, Tuple
 
@@ -23,6 +24,8 @@ from src.core.commands import (
     UpdatePropertyCommand,
     UndoCommand,
     RedoCommand,
+    RayCastCommand,
+    EntitySelectedEvent,
 )
 from src.core.ipc import CommandQueue, EventQueue, FrameBuffer, PlotBuffer
 from src.core.undo_stack import UndoStack
@@ -331,12 +334,13 @@ class GenesisSimulationState:
     Phase 4 Extensions: Property editing with Undo/Redo (T102-T110)
     """
 
-    def __init__(self, scene):
+    def __init__(self, scene, scene_lock=None):
         """
         Initialize simulation state.
 
         Args:
             scene: Genesis scene object
+            scene_lock: Optional lock guarding scene reads/writes shared with GUI
         """
         # Playback state
         self.is_playing = True  # Start playing by default
@@ -346,6 +350,7 @@ class GenesisSimulationState:
 
         # Property editing state (Phase 4)
         self.scene = scene
+        self.scene_lock = scene_lock
         self.undo_stack = UndoStack(max_size=100)
 
     def handle_command(self, command: BaseCommand):
@@ -481,53 +486,55 @@ class GenesisSimulationState:
         - Supports dot-separated paths like "position.x"
         """
         try:
-            # Get entity from scene
-            # Genesis scene stores entities in a list accessible via scene.entities
-            if not hasattr(self.scene, 'entities') or entity_id >= len(self.scene.entities):
-                print(f"[SIM] Invalid entity_id: {entity_id}")
-                return
+            lock_ctx = self.scene_lock if self.scene_lock is not None else nullcontext()
+            with lock_ctx:
+                # Get entity from scene
+                # Genesis scene stores entities in a list accessible via scene.entities
+                if not hasattr(self.scene, 'entities') or entity_id >= len(self.scene.entities):
+                    print(f"[SIM] Invalid entity_id: {entity_id}")
+                    return
 
-            entity = self.scene.entities[entity_id]
+                entity = self.scene.entities[entity_id]
 
-            # Parse property path
-            path_parts = property_path.split('.')
+                # Parse property path
+                path_parts = property_path.split('.')
 
-            if path_parts[0] == 'position':
-                # Handle position properties (special case for set_pos)
-                # Get current position
-                current_pos = entity.get_pos()
+                if path_parts[0] == 'position':
+                    # Handle position properties (special case for set_pos)
+                    # Get current position
+                    current_pos = entity.get_pos()
 
-                # Convert to list for modification
-                if hasattr(current_pos, 'tolist'):
-                    pos_list = current_pos.tolist()
-                else:
-                    pos_list = list(current_pos)
-
-                # Modify specific axis
-                if len(path_parts) == 2:
-                    axis = path_parts[1].lower()
-                    if axis == 'x':
-                        pos_list[0] = float(value)
-                    elif axis == 'y':
-                        pos_list[1] = float(value)
-                    elif axis == 'z':
-                        pos_list[2] = float(value)
+                    # Convert to list for modification
+                    if hasattr(current_pos, 'tolist'):
+                        pos_list = current_pos.tolist()
                     else:
-                        print(f"[SIM] Unknown axis: {axis}")
-                        return
+                        pos_list = list(current_pos)
 
-                    # Set new position
-                    entity.set_pos(tuple(pos_list))
-                    print(f"[SIM] Set entity {entity_id} position: {pos_list}")
+                    # Modify specific axis
+                    if len(path_parts) == 2:
+                        axis = path_parts[1].lower()
+                        if axis == 'x':
+                            pos_list[0] = float(value)
+                        elif axis == 'y':
+                            pos_list[1] = float(value)
+                        elif axis == 'z':
+                            pos_list[2] = float(value)
+                        else:
+                            print(f"[SIM] Unknown axis: {axis}")
+                            return
+
+                        # Set new position
+                        entity.set_pos(tuple(pos_list))
+                        print(f"[SIM] Set entity {entity_id} position: {pos_list}")
+                    else:
+                        print(f"[SIM] Invalid position path: {property_path}")
                 else:
-                    print(f"[SIM] Invalid position path: {property_path}")
-            else:
-                # Generic property path resolver (for future properties)
-                obj = entity
-                for part in path_parts[:-1]:
-                    obj = getattr(obj, part)
-                setattr(obj, path_parts[-1], value)
-                print(f"[SIM] Set property: entity={entity_id}, path={property_path}, value={value}")
+                    # Generic property path resolver (for future properties)
+                    obj = entity
+                    for part in path_parts[:-1]:
+                        obj = getattr(obj, part)
+                    setattr(obj, path_parts[-1], value)
+                    print(f"[SIM] Set property: entity={entity_id}, path={property_path}, value={value}")
 
         except Exception as e:
             print(f"[SIM] Failed to set property: entity={entity_id}, path={property_path}, value={value}, error={e}")
@@ -566,6 +573,7 @@ def genesis_sim_loop(
     plot_buffers: Dict[str, PlotBuffer],
     fps_counter,  # FPSCounter instance
     shutdown_event: threading.Event,
+    scene_lock=None,
     target_hz: float = 1000.0,
 ):
     """
@@ -596,7 +604,7 @@ def genesis_sim_loop(
         shutdown_event: Event to signal shutdown
         target_hz: Target loop frequency (default 1000 Hz, but may run slower)
     """
-    state = GenesisSimulationState(scene)
+    state = GenesisSimulationState(scene, scene_lock=scene_lock)
     dt = 1.0 / target_hz  # Time step per frame (typically 0.001s = 1ms)
 
     print(f"[SIM] Genesis simulation loop starting (target: {target_hz} Hz)")
@@ -629,6 +637,20 @@ def genesis_sim_loop(
                     print("[SIM] Received ShutdownCommand, exiting loop")
                     return
 
+                # Handle raycast (Phase 6: T139-T141)
+                if isinstance(command, RayCastCommand):
+                    from src.core.picking import pick_nearest_entity
+                    entity_id = pick_nearest_entity(
+                        command.x_norm, command.y_norm, scene, camera
+                    )
+                    try:
+                        event_queue.put_nowait(
+                            EntitySelectedEvent(entity_id=entity_id)
+                        )
+                    except Exception:
+                        pass
+                    continue
+
                 # Handle playback control and property editing
                 state.handle_command(command)
 
@@ -640,8 +662,12 @@ def genesis_sim_loop(
         # ====================================================================
 
         if state.should_advance():
-            # Step Genesis simulation
-            scene.step()
+            scene_ctx = scene_lock if scene_lock is not None else nullcontext()
+
+            # Step Genesis simulation under scene lock so GUI reads
+            # (inspector/gizmo) never race with writes.
+            with scene_ctx:
+                scene.step()
 
             # Render frame and write to buffer (T075: Frame skip logic)
             # Render every frame for now - GUI reads latest frame at 60 FPS
@@ -658,7 +684,8 @@ def genesis_sim_loop(
 
             # Write kinetic energy
             from src.core.scene_setup import compute_kinetic_energy
-            ke = compute_kinetic_energy(scene)
+            with scene_ctx:
+                ke = compute_kinetic_energy(scene)
             plot_buffers["kinetic_energy"].append(timestamp=state.sim_time, value=ke)
 
             # Write sim FPS
@@ -669,12 +696,11 @@ def genesis_sim_loop(
         # 4. Rate Limiting (optional - let sim run at max FPS)
         # ====================================================================
 
-        # No sleep when playing - let simulation run at maximum speed
-        # GUI will read latest frame at its own 60 FPS rate
-        # This creates natural frame skipping when sim FPS >> GUI FPS
-        # Brief sleep when paused to avoid busy-waiting
-        if not state.is_playing:
-            time.sleep(0.001)  # 1ms sleep when paused to reduce CPU usage
+        # Keep loop close to target_hz to prevent unbounded CPU usage.
+        loop_duration = time.perf_counter() - loop_start
+        sleep_time = dt - loop_duration
+        if sleep_time > 0:
+            time.sleep(sleep_time)
 
     print("[SIM] Genesis simulation loop exited")
 
@@ -687,6 +713,7 @@ def start_genesis_sim_thread(
     frame_buffer: FrameBuffer,
     plot_buffers: Dict[str, PlotBuffer],
     fps_counter,  # FPSCounter instance
+    scene_lock=None,
     target_hz: float = 1000.0,
 ) -> Tuple[threading.Thread, threading.Event]:
     """
@@ -705,6 +732,7 @@ def start_genesis_sim_thread(
         frame_buffer: FrameBuffer instance
         plot_buffers: Dict of PlotBuffer instances keyed by signal name
         fps_counter: FPSCounter instance
+        scene_lock: Optional lock shared with GUI scene readers
         target_hz: Target loop frequency (default 1000 Hz)
 
     Returns:
@@ -714,7 +742,18 @@ def start_genesis_sim_thread(
 
     thread = threading.Thread(
         target=genesis_sim_loop,
-        args=(scene, camera, command_queue, event_queue, frame_buffer, plot_buffers, fps_counter, shutdown_event, target_hz),
+        args=(
+            scene,
+            camera,
+            command_queue,
+            event_queue,
+            frame_buffer,
+            plot_buffers,
+            fps_counter,
+            shutdown_event,
+            scene_lock,
+            target_hz,
+        ),
         name="GenesisSimThread",
         daemon=True,
     )
